@@ -1,0 +1,40 @@
+# Сборка и раздача SPA (apps/web) на Netlify.
+# API живёт на Railway; фронт ходит к нему через прокси /api/* — тогда
+# refresh-cookie остаётся same-site и не требует послаблений CORS.
+
+[build]
+  base = "."
+  command = "pnpm install --frozen-lockfile && pnpm --filter @renovateam/web build"
+  publish = "apps/web/dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+  PNPM_VERSION = "10"
+  # Фронт обращается к API по относительному пути — его проксирует правило ниже.
+  VITE_API_URL = "/api/v1"
+
+# Прокси на backend. API_URL задаётся переменной окружения сайта
+# (Site settings → Environment variables), например https://api.renovateam.app
+[[redirects]]
+  from = "/api/*"
+  to = "$API_URL/api/:splat"
+  status = 200
+  force = true
+
+# SPA: любой неизвестный путь отдаёт index.html, маршрутизацию делает react-router.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

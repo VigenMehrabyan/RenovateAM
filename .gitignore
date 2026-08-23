@@ -5,3 +5,4 @@ coverage/
 .env.local
 apps/api/src/generated/
 *.log
+.screenshots/

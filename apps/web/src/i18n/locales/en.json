@@ -1,0 +1,393 @@
+{
+  "common": {
+    "appName": "RenovateAM",
+    "tagline": "Preliminary renovation cost estimate",
+    "loading": "Loading…",
+    "cancel": "Cancel",
+    "back": "Back",
+    "close": "Close",
+    "retry": "Retry",
+    "remove": "Remove",
+    "download": "Download",
+    "save": "Save",
+    "saving": "Saving…",
+    "sending": "Sending…",
+    "skipToContent": "Skip to content",
+    "amdSuffix": "֏",
+    "sqm": "m²",
+    "notSet": "—",
+    "prev": "Previous",
+    "next": "Next",
+    "of": "of"
+  },
+  "nav": {
+    "calculator": "Calculator",
+    "howItWorks": "How it works",
+    "cabinet": "My account",
+    "admin": "Admin",
+    "login": "Sign in",
+    "register": "Sign up",
+    "logout": "Sign out",
+    "menu": "Menu"
+  },
+  "lang": {
+    "label": "Interface language",
+    "ru": "Русский",
+    "hy": "Հայերեն",
+    "en": "English"
+  },
+  "landing": {
+    "eyebrow": "Armenia · priced in AMD",
+    "title": "Renovation cost before the surveyor visits",
+    "lead": "Six parameters and you see the price range for the standard package. No calls, no sign-up.",
+    "baseRateLabel": "Standard package base rate",
+    "baseRateUnit": "per 1 m²",
+    "howTitle": "How it works",
+    "steps": [
+      {
+        "title": "Instant estimate",
+        "text": "You set the area, property type and scope of work. The range is computed in your browser, instantly."
+      },
+      {
+        "title": "Request with files",
+        "text": "After signing up you upload the BTI floor plan and design references. Files are optional."
+      },
+      {
+        "title": "Quote from an estimator",
+        "text": "The estimator prepares a detailed quote within 1–2 business days. You accept or reject it."
+      }
+    ],
+    "packageTitle": "What the standard package covers",
+    "packageNote": "Design solutions are not covered — they are priced individually.",
+    "packageItems": [
+      "Rough and finishing works, turnkey",
+      "Electrical wiring and water supply to a standard layout",
+      "Levelling of walls, floors and ceilings",
+      "Standard doors, coverings and plumbing from the base range",
+      "Debris removal and post-construction cleaning"
+    ]
+  },
+  "calculator": {
+    "title": "Instant estimate",
+    "subtitle": "Six fields. No sign-up required.",
+    "area": "Area",
+    "areaUnit": "m²",
+    "areaPlaceholder": "80",
+    "areaHint": "From 10 to 1000 m²",
+    "objectType": "Property type",
+    "objectTypeOptions": {
+      "APARTMENT": "Apartment",
+      "HOUSE": "House"
+    },
+    "workScope": "Scope of work",
+    "workScopeOptions": {
+      "TURNKEY": "Turnkey",
+      "FINISHING": "Finishing",
+      "ROUGH": "Rough"
+    },
+    "finishPackage": "Finish package",
+    "finishPackageOptions": {
+      "STANDARD": "Standard",
+      "DESIGNER": "Designer"
+    },
+    "condition": "Property condition",
+    "conditionOptions": {
+      "NEW_BUILDING": "New building",
+      "SECONDARY_WITH_DEMOLITION": "Resale, with demolition"
+    },
+    "ceilingHeight": "Ceiling height",
+    "ceilingHeightOptions": {
+      "UP_TO_3M": "Up to 3 m",
+      "FROM_3M": "From 3 m"
+    },
+    "submit": "Calculate",
+    "designerHint": "The designer package is priced individually — no amount is shown in the browser.",
+    "validation": {
+      "areaRequired": "Enter the area",
+      "areaNumber": "Area must be a number",
+      "areaRange": "Area must be between 10 and 1000 m²",
+      "optionRequired": "Choose a value"
+    }
+  },
+  "result": {
+    "title": "Preliminary estimate",
+    "rangeLabel": "Price range, AMD",
+    "from": "from",
+    "to": "to",
+    "parametersTitle": "Estimate parameters",
+    "coefficientsTitle": "Applied coefficients",
+    "validUntil": "Estimate valid until {{date}}",
+    "validityNote": "Valid for 30 days. After that the cost is recalculated at the current rates.",
+    "disclaimer": "Preliminary estimate. The exact cost is set after the survey.",
+    "includedTitle": "What the standard package covers",
+    "toRequest": "Send a request to an estimator",
+    "recalculate": "Change parameters",
+    "empty": "No estimate found. Start with the calculator.",
+    "toCalculator": "Go to calculator",
+    "designer": {
+      "badge": "Manual pricing required",
+      "title": "This project requires an individual quote",
+      "text": "The quote will be ready within 2 business days. Design solutions do not follow a formula — the estimator prices them from your materials.",
+      "noPriceNote": "That is why no amount is shown here — neither an approximation nor a range."
+    },
+    "rateVersion": "Rate version"
+  },
+  "auth": {
+    "login": {
+      "title": "Sign in",
+      "submit": "Sign in",
+      "noAccount": "No account yet?",
+      "registerLink": "Create one"
+    },
+    "register": {
+      "title": "Sign up",
+      "lead": "The estimator needs these details to prepare the quote and reach you.",
+      "submit": "Create account",
+      "hasAccount": "Already registered?",
+      "loginLink": "Sign in",
+      "estimateAttached": "Your estimate will be linked to the account."
+    },
+    "fields": {
+      "fullName": "Full name",
+      "email": "E-mail",
+      "phone": "Phone",
+      "phoneHint": "Armenian format: +374XXXXXXXX",
+      "address": "Property address",
+      "password": "Password",
+      "passwordHint": "At least 8 characters, one letter and one digit"
+    },
+    "validation": {
+      "fullNameRequired": "Enter your full name",
+      "fullNameShort": "At least 2 characters",
+      "emailRequired": "Enter your e-mail",
+      "emailInvalid": "Invalid e-mail",
+      "phoneRequired": "Enter your phone",
+      "phoneInvalid": "Phone must match +374XXXXXXXX",
+      "addressRequired": "Enter the property address",
+      "addressShort": "At least 5 characters",
+      "passwordRequired": "Choose a password",
+      "passwordShort": "At least 8 characters",
+      "passwordWeak": "Needs at least one letter and one digit"
+    },
+    "verify": {
+      "title": "E-mail verification",
+      "sentTitle": "Message sent",
+      "sentText": "We sent a link to {{email}}. The link is valid for 24 hours.",
+      "sentTextNoEmail": "We sent a link to your inbox. The link is valid for 24 hours.",
+      "resend": "Send the message again",
+      "resendCountdown": "You can resend in {{seconds}} s",
+      "resendDone": "The message has been sent again.",
+      "checking": "Checking the link…",
+      "successTitle": "E-mail verified",
+      "successText": "You can now send a request to an estimator.",
+      "toCabinet": "Go to my account",
+      "expiredTitle": "The link has expired",
+      "expiredText": "Links live for 24 hours. Request a new one — it goes to the same address.",
+      "usedTitle": "This link was already used",
+      "usedText": "The e-mail was verified earlier. Sign in to your account.",
+      "invalidTitle": "The link is not valid",
+      "invalidText": "Check that you copied the whole address, or request a new message.",
+      "toLogin": "Go to sign in",
+      "bannerTitle": "Verify your e-mail",
+      "bannerText": "Until the address is verified you cannot send a request.",
+      "bannerAction": "Open verification"
+    }
+  },
+  "request": {
+    "new": {
+      "title": "Request for a quote",
+      "lead": "Attach the BTI plan and design references. A request can be sent without files too.",
+      "estimateTitle": "Estimate attached to the request",
+      "noEstimate": "No estimate attached — the estimator will price from scratch.",
+      "commentLabel": "Comment for the estimator",
+      "commentPlaceholder": "What matters: deadlines, material preferences, specifics of the property",
+      "commentHint": "Up to 2000 characters",
+      "submit": "Send request",
+      "submitted": "Request sent",
+      "activeExists": "You already have an active request."
+    },
+    "files": {
+      "btiTitle": "BTI floor plan",
+      "btiHint": "Floor plan or technical passport of the property",
+      "designTitle": "Desired design",
+      "designHint": "References, design project, material selection",
+      "dropzone": "Drag files here or pick them from disk",
+      "browse": "Choose files",
+      "formats": "PDF, JPG, PNG, DWG · up to 25 MB · at most 10 files per request",
+      "uploading": "Uploading",
+      "uploaded": "Uploaded",
+      "failed": "Upload failed",
+      "removeFile": "Remove file {{name}}",
+      "empty": "No files yet",
+      "errors": {
+        "unsupportedType": "Format not supported. Upload PDF, JPG, PNG or DWG",
+        "tooLarge": "The file is over 25 MB. Compress it or split it into parts",
+        "tooMany": "At most 10 files per request",
+        "empty": "The file is empty"
+      }
+    },
+    "status": {
+      "NEW": "New",
+      "IN_PROGRESS": "In progress",
+      "NEEDS_INFO": "Needs info",
+      "QUOTE_READY": "Quote ready",
+      "ACCEPTED": "Accepted",
+      "REJECTED": "Rejected"
+    },
+    "statusHint": {
+      "NEW": "The request is queued. Expect an answer in 1–2 business days.",
+      "IN_PROGRESS": "The estimator is working on the quote.",
+      "NEEDS_INFO": "The estimator needs clarifications — see the comment.",
+      "QUOTE_READY": "The quote is ready. Accept or reject it.",
+      "ACCEPTED": "The quote is accepted. A manager will contact you.",
+      "REJECTED": "The quote was rejected."
+    }
+  },
+  "cabinet": {
+    "title": "My account",
+    "requestNumber": "Request No. {{number}}",
+    "createdAt": "Created",
+    "updatedAt": "Updated",
+    "noRequests": "No active request.",
+    "createRequest": "Create a request",
+    "historyTitle": "Status history",
+    "historyEntry": "{{from}} → {{to}}",
+    "historyStart": "Request created",
+    "quoteTitle": "Quote",
+    "quoteTotal": "Total amount",
+    "quoteDownload": "Download quote (PDF)",
+    "noQuote": "The quote has not been uploaded yet.",
+    "commentTitle": "Estimator's comment",
+    "filesTitle": "Request files",
+    "estimateTitle": "Instant estimate",
+    "decision": {
+      "accept": "Accept the quote",
+      "reject": "Reject the quote",
+      "title": "Decision on the quote",
+      "irreversible": "The decision is final: it cannot be changed once sent.",
+      "reasonLabel": "Reason for rejection",
+      "reasonRequired": "Choose a reason for rejection",
+      "commentLabel": "Clarify the reason",
+      "commentRequired": "Describe the reason — required for the “other” option",
+      "confirmAccept": "Confirm acceptance",
+      "confirmReject": "Confirm rejection",
+      "madeAccepted": "You accepted the quote on {{date}}.",
+      "madeRejected": "You rejected the quote on {{date}}.",
+      "reasons": {
+        "TOO_EXPENSIVE": "Too expensive",
+        "TOO_LONG": "Takes too long",
+        "CHOSE_ANOTHER": "Chose another contractor",
+        "POSTPONED": "Postponed the renovation",
+        "OTHER": "Other"
+      }
+    }
+  },
+  "admin": {
+    "queue": {
+      "title": "Request queue",
+      "filterStatus": "Status",
+      "filterAll": "All statuses",
+      "filterPhone": "Client phone",
+      "sort": "Sorting",
+      "sortNewest": "Newest first",
+      "sortOldest": "Oldest first",
+      "apply": "Apply",
+      "reset": "Reset",
+      "empty": "No requests match these filters.",
+      "columns": {
+        "number": "No.",
+        "status": "Status",
+        "client": "Client",
+        "phone": "Phone",
+        "estimate": "Auto estimate",
+        "files": "Files",
+        "createdAt": "Created"
+      },
+      "duplicates": "Duplicates by phone: {{count}}",
+      "total": "Requests in total: {{count}}",
+      "page": "Page {{page}}"
+    },
+    "request": {
+      "title": "Request No. {{number}}",
+      "clientTitle": "Client",
+      "paramsTitle": "Estimate parameters",
+      "filesTitle": "Files",
+      "logTitle": "Status log",
+      "statusTitle": "Change status",
+      "statusTarget": "New status",
+      "statusComment": "Comment",
+      "statusCommentRequired": "A comment is required for the “needs info” status",
+      "statusSubmit": "Change status",
+      "noTransitions": "Terminal status — no transitions available.",
+      "quoteTitle": "Quote",
+      "quoteFile": "Quote PDF",
+      "quoteTotal": "Total amount, AMD",
+      "quoteSubmit": "Upload quote",
+      "quoteUploaded": "Quote uploaded",
+      "quoteTotalRequired": "Enter the total amount",
+      "quoteFileRequired": "Choose a PDF file",
+      "decisionTitle": "Client decision",
+      "back": "Back to queue"
+    },
+    "rates": {
+      "title": "Rates and coefficients",
+      "lead": "Saving creates a new version of the rate set. Past estimates are not recalculated.",
+      "baseRate": "Base rate per 1 m², AMD",
+      "workScope": "Scope of work coefficient",
+      "objectType": "Property type coefficient",
+      "condition": "Condition coefficient",
+      "ceilingHeight": "Ceiling height coefficient",
+      "range": "Range bounds",
+      "rangeMin": "Lower bound",
+      "rangeMax": "Upper bound",
+      "note": "Version note",
+      "notePlaceholder": "For example: calibration on 20 closed projects",
+      "submit": "Save a new version",
+      "saved": "A new rate version has been created",
+      "historyTitle": "Version history",
+      "activeVersion": "Active",
+      "author": "Author",
+      "positiveRequired": "The value must be greater than zero"
+    }
+  },
+  "errors": {
+    "title": "Error",
+    "NETWORK": "No connection to the server. Check your network and retry.",
+    "INTERNAL_ERROR": "Internal server error. We already know about it, try again later.",
+    "MALFORMED_REQUEST": "Malformed request.",
+    "VALIDATION_FAILED": "Check the form fields.",
+    "INVALID_CREDENTIALS": "Wrong e-mail or password.",
+    "ACCESS_TOKEN_EXPIRED": "The session has expired. Sign in again.",
+    "REFRESH_INVALID": "The session has ended. Sign in again.",
+    "FORBIDDEN": "Not enough permissions for this action.",
+    "EMAIL_NOT_VERIFIED": "Verify your e-mail — a request cannot be sent without it.",
+    "NOT_FOUND": "Not found.",
+    "EMAIL_ALREADY_REGISTERED": "A user with this e-mail is already registered.",
+    "ACTIVE_REQUEST_EXISTS": "You already have an active request.",
+    "DECISION_ALREADY_MADE": "A decision on this quote has already been made.",
+    "INVALID_STATUS_TRANSITION": "This status transition is not allowed.",
+    "TOKEN_INVALID": "The link is not valid.",
+    "TOKEN_ALREADY_USED": "The link has already been used.",
+    "TOKEN_EXPIRED": "The link has expired.",
+    "FILE_LIMIT_REACHED": "At most 10 files per request.",
+    "UPLOAD_NOT_FOUND": "The uploaded file is missing from storage. Upload it again.",
+    "ESTIMATE_EXPIRED": "The estimate has expired — calculate it again.",
+    "FILE_TOO_LARGE": "The file is over 25 MB. Compress it or split it into parts",
+    "UNSUPPORTED_MEDIA_TYPE": "Format not supported. Upload PDF, JPG, PNG or DWG",
+    "AREA_OUT_OF_RANGE": "Area must be between 10 and 1000 m²",
+    "COMMENT_REQUIRED": "A comment is required.",
+    "RATE_LIMITED": "Too many requests. Wait a minute.",
+    "RESEND_TOO_SOON": "The message can be sent once per 60 seconds.",
+    "UNKNOWN": "Something went wrong. Try again.",
+    "retry": "Try again"
+  },
+  "notFound": {
+    "title": "Page not found",
+    "text": "Check the address or go back to the home page.",
+    "home": "Home page"
+  },
+  "emailVerifiedGate": {
+    "title": "Verify your e-mail",
+    "text": "Sending a request becomes available right after the address is verified."
+  }
+}
