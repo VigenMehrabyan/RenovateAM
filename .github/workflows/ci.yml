@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  quality:
+    name: Ворота качества
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: renovateam
+          POSTGRES_PASSWORD: renovateam
+          POSTGRES_DB: renovateam_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://renovateam:renovateam@localhost:5432/renovateam_test
+      JWT_SECRET: ci-test-secret-do-not-use-in-production
+      JWT_REFRESH_SECRET: ci-test-refresh-secret-do-not-use-in-production
+      APP_URL: http://localhost:5173
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Установка зависимостей
+        run: pnpm install --frozen-lockfile
+
+      - name: Применение миграций
+        run: pnpm --filter api db:setup
+
+      - name: Линт
+        run: pnpm lint
+
+      - name: Проверка типов
+        run: pnpm typecheck
+
+      - name: Тесты
+        run: pnpm test
+
+      - name: Сборка
+        run: pnpm build

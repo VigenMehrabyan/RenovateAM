@@ -1,0 +1,54 @@
+/**
+ * Машинные коды ошибок API (docs/ARCHITECTURE.md §9).
+ * Коды стабильны: фронт по ним выбирает локализованный текст (ru/hy/en).
+ */
+export const ErrorCode = {
+  // 400
+  TOKEN_INVALID: 'TOKEN_INVALID',
+  MALFORMED_REQUEST: 'MALFORMED_REQUEST',
+  // 401
+  INVALID_CREDENTIALS: 'INVALID_CREDENTIALS',
+  ACCESS_TOKEN_EXPIRED: 'ACCESS_TOKEN_EXPIRED',
+  REFRESH_INVALID: 'REFRESH_INVALID',
+  // 403
+  FORBIDDEN: 'FORBIDDEN',
+  EMAIL_NOT_VERIFIED: 'EMAIL_NOT_VERIFIED',
+  // 404
+  NOT_FOUND: 'NOT_FOUND',
+  // 409
+  EMAIL_ALREADY_REGISTERED: 'EMAIL_ALREADY_REGISTERED',
+  ACTIVE_REQUEST_EXISTS: 'ACTIVE_REQUEST_EXISTS',
+  DECISION_ALREADY_MADE: 'DECISION_ALREADY_MADE',
+  INVALID_STATUS_TRANSITION: 'INVALID_STATUS_TRANSITION',
+  TOKEN_ALREADY_USED: 'TOKEN_ALREADY_USED',
+  FILE_LIMIT_REACHED: 'FILE_LIMIT_REACHED',
+  UPLOAD_NOT_FOUND: 'UPLOAD_NOT_FOUND',
+  ALREADY_VERIFIED: 'ALREADY_VERIFIED',
+  // 410
+  TOKEN_EXPIRED: 'TOKEN_EXPIRED',
+  ESTIMATE_EXPIRED: 'ESTIMATE_EXPIRED',
+  // 413 / 415
+  FILE_TOO_LARGE: 'FILE_TOO_LARGE',
+  UNSUPPORTED_MEDIA_TYPE: 'UNSUPPORTED_MEDIA_TYPE',
+  // 422
+  VALIDATION_FAILED: 'VALIDATION_FAILED',
+  AREA_OUT_OF_RANGE: 'AREA_OUT_OF_RANGE',
+  COMMENT_REQUIRED: 'COMMENT_REQUIRED',
+  // 429
+  RATE_LIMITED: 'RATE_LIMITED',
+  RESEND_TOO_SOON: 'RESEND_TOO_SOON',
+  // 500
+  INTERNAL_ERROR: 'INTERNAL_ERROR',
+} as const;
+
+export type ErrorCodeValue = (typeof ErrorCode)[keyof typeof ErrorCode];
+
+/** Тело ответа об ошибке — единое для всех 4xx/5xx. */
+export interface ApiErrorBody {
+  error: {
+    code: ErrorCodeValue | string;
+    message: string;
+    details?: Array<{ field: string; code: string }>;
+    requestId: string;
+  };
+}
