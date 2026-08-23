@@ -35,9 +35,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Версия pnpm берётся из поля packageManager в package.json —
+      # единственный источник истины, тот же, что и локально.
+      # Дублирование через `with: version` ломает установку (ERR_PNPM_BAD_PM_VERSION).
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
       - uses: actions/setup-node@v4
         with:
@@ -46,6 +47,13 @@ jobs:
 
       - name: Установка зависимостей
         run: pnpm install --frozen-lockfile
+
+      # Клиент Prisma генерируется в apps/api/src/generated и не хранится
+      # в репозитории. postinstall делает это на чистом клоне, но шаг оставлен
+      # явным: если установка когда-нибудь пойдёт с --ignore-scripts,
+      # сборка должна падать здесь с понятной причиной, а не на импорте модуля.
+      - name: Генерация клиента Prisma
+        run: pnpm --filter @renovateam/api prisma:generate
 
       - name: Применение миграций
         run: pnpm --filter api db:setup

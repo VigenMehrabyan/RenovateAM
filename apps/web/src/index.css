@@ -1,0 +1,118 @@
+/* Гарнитуры самохостятся: на локали hy интерфейс обязан отрисоваться
+   армянским Noto, а не молча уехать на системный запасной шрифт. */
+@import '@fontsource/noto-sans/latin-400.css';
+@import '@fontsource/noto-sans/latin-500.css';
+@import '@fontsource/noto-sans/latin-600.css';
+@import '@fontsource/noto-sans/latin-700.css';
+@import '@fontsource/noto-sans/cyrillic-400.css';
+@import '@fontsource/noto-sans/cyrillic-500.css';
+@import '@fontsource/noto-sans/cyrillic-600.css';
+@import '@fontsource/noto-sans/cyrillic-700.css';
+@import '@fontsource/noto-sans-armenian/armenian-400.css';
+@import '@fontsource/noto-sans-armenian/armenian-500.css';
+@import '@fontsource/noto-sans-armenian/armenian-600.css';
+@import '@fontsource/noto-sans-armenian/armenian-700.css';
+@import '@fontsource/noto-sans-mono/latin-400.css';
+@import '@fontsource/noto-sans-mono/latin-500.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Латиница и кириллица. Армянский добавлен запасным: даже отдельные
+       армянские слова внутри ru/en-текста получают правильные глифы. */
+    --font-ui: 'Noto Sans', 'Noto Sans Armenian', system-ui, sans-serif;
+    --page-bg: theme('colors.ink.50');
+    --surface: #ffffff;
+    --hairline: theme('colors.ink.200');
+  }
+
+  /* Активная локаль армянская — ведущей становится армянская гарнитура. */
+  html[lang='hy'] {
+    --font-ui: 'Noto Sans Armenian', 'Noto Sans', system-ui, sans-serif;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--page-bg);
+    color: theme('colors.ink.800');
+    font-family: var(--font-ui);
+    font-size: 16px;
+    line-height: 1.55;
+    /* Горизонтального скролла страницы нет ни на одной ширине. */
+    overflow-x: hidden;
+  }
+
+  /* Все числа — табличные: суммы не должны прыгать при пересчёте. */
+  .tnum,
+  input[type='number'],
+  table {
+    font-variant-numeric: tabular-nums;
+  }
+
+  h1,
+  h2,
+  h3 {
+    color: theme('colors.ink.900');
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  :focus-visible {
+    outline: 2px solid theme('colors.accent.500');
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* Цель касания не меньше 44px — основной сценарий мобильный. */
+  .touch-target {
+    min-height: 44px;
+  }
+
+  .field-label {
+    @apply mb-1 block text-sm font-medium text-ink-700;
+  }
+
+  .field-control {
+    @apply touch-target w-full rounded border border-ink-300 bg-white px-3 py-2 text-ink-900
+      placeholder:text-ink-400 focus:border-accent-500 focus:outline-none focus:ring-2
+      focus:ring-accent-200 disabled:bg-ink-100 disabled:text-ink-500;
+  }
+
+  .field-error {
+    @apply mt-1 text-sm text-danger-500;
+  }
+
+  .surface {
+    @apply border border-ink-200 bg-white;
+  }
+
+  /* Текст, пришедший от пользователя (комментарии, адреса, имена файлов),
+     может не содержать пробелов вовсе. Без принудительного переноса такая
+     строка задаёт min-content колонки и растягивает страницу шире экрана:
+     на 320–360 px шапка и футер обрезаются, а правый край контента
+     становится недостижимым — `overflow-x: hidden` на body его прячет.
+     `anywhere` (а не `break-word`) выбран намеренно: только он уменьшает
+     min-content, то есть реально позволяет flex-элементу сжаться. */
+  .user-text {
+    overflow-wrap: anywhere;
+  }
+}

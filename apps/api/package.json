@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "postinstall": "pnpm run prisma:generate",
     "prisma:generate": "mkdir -p .prisma-engines && touch .prisma-engines/stub && PRISMA_SCHEMA_ENGINE_BINARY=\"$PWD/.prisma-engines/stub\" PRISMA_QUERY_ENGINE_LIBRARY=\"$PWD/.prisma-engines/stub\" prisma generate",
     "db:setup": "tsx prisma/apply-migrations.ts",
     "db:seed": "tsx prisma/seed.ts",
