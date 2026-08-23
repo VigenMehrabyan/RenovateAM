@@ -12,6 +12,7 @@ import {
   StatusBadge,
   TextInput,
 } from '@/components/ui';
+import { isStaff, useAuth } from '@/features/auth/auth-context';
 import { adminApi } from '@/lib/api';
 import { REQUEST_STATUSES } from '@/lib/api-types';
 import type { RequestStatus } from '@/lib/api-types';
@@ -33,7 +34,10 @@ const PAGE_SIZE = 20;
  */
 export function AdminQueuePage(): JSX.Element {
   const { t, i18n } = useTranslation();
+  const { user } = useAuth();
   const toMessage = useErrorMessage();
+  /** Не сотрудник — очередь не запрашивается вовсе, даже на кадр до редиректа. */
+  const allowed = isStaff(user);
   const [filters, setFilters] = useState<Filters>({
     status: '',
     phone: '',
@@ -51,6 +55,7 @@ export function AdminQueuePage(): JSX.Element {
         page: filters.page,
         pageSize: PAGE_SIZE,
       }),
+    enabled: allowed,
   });
 
   return (
@@ -125,7 +130,7 @@ export function AdminQueuePage(): JSX.Element {
         </div>
       </form>
 
-      {isLoading ? <Spinner label={t('common.loading')} /> : null}
+      {isLoading || !allowed ? <Spinner label={t('common.loading')} /> : null}
 
       {error ? (
         <Alert tone="danger" className="mt-5" title={t('errors.title')}>

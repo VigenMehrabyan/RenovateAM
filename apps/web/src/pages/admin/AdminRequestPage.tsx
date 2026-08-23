@@ -15,6 +15,7 @@ import {
   TextArea,
   TextInput,
 } from '@/components/ui';
+import { isStaff, useAuth } from '@/features/auth/auth-context';
 import { adminApi, filesApi } from '@/lib/api';
 import { openSignedUrl } from '@/lib/download';
 import { STAFF_TRANSITIONS } from '@/lib/api-types';
@@ -26,15 +27,18 @@ import { useErrorMessage } from '@/lib/use-error-message';
 export function AdminRequestPage(): JSX.Element {
   const { t, i18n } = useTranslation();
   const { id = '' } = useParams();
+  const { user } = useAuth();
   const toMessage = useErrorMessage();
+  /** Не сотрудник — карточка не запрашивается вовсе, даже на кадр до редиректа. */
+  const allowed = isStaff(user);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin', 'request', id],
     queryFn: () => adminApi.request(id),
-    enabled: Boolean(id),
+    enabled: allowed && Boolean(id),
   });
 
-  if (isLoading) return <Spinner label={t('common.loading')} />;
+  if (isLoading || !allowed) return <Spinner label={t('common.loading')} />;
   if (error) {
     return (
       <Alert tone="danger" title={t('errors.title')}>

@@ -35,9 +35,18 @@ export function CabinetPage(): JSX.Element {
   const { user } = useAuth();
   const toMessage = useErrorMessage();
 
+  /**
+   * Нет пользователя — нет и запросов к его данным. Без этого условия
+   * наблюдатель `useQuery` переживал выход: сразу после сброса кеша первая же
+   * перерисовка (экран ещё смонтирован, редирект гварда — следующим кадром)
+   * заводила запрос заново и возвращала в кеш заявку предыдущего пользователя.
+   */
+  const signedIn = Boolean(user);
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['requests', 'me'],
     queryFn: () => requestsApi.mine(),
+    enabled: signedIn,
   });
 
   const latest = data?.[0] ?? null;
@@ -45,7 +54,7 @@ export function CabinetPage(): JSX.Element {
   const detail = useQuery({
     queryKey: ['requests', latest?.id],
     queryFn: () => requestsApi.byId(latest?.id ?? ''),
-    enabled: Boolean(latest?.id),
+    enabled: signedIn && Boolean(latest?.id),
   });
 
   const request = detail.data ?? latest;
@@ -65,7 +74,7 @@ export function CabinetPage(): JSX.Element {
           </Alert>
         ) : null}
 
-        {isLoading ? <Spinner label={t('common.loading')} /> : null}
+        {isLoading || !signedIn ? <Spinner label={t('common.loading')} /> : null}
 
         {error ? (
           <Alert tone="danger" className="mt-4" title={t('errors.title')}>
@@ -73,7 +82,7 @@ export function CabinetPage(): JSX.Element {
           </Alert>
         ) : null}
 
-        {!isLoading && !request ? (
+        {signedIn && !isLoading && !request ? (
           <div className="mt-6">
             <p className="text-ink-600">{t('cabinet.noRequests')}</p>
             {verified ? (

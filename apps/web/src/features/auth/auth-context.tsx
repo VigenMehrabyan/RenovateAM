@@ -3,7 +3,15 @@
  * при монтировании приложения делается «тихий» `/auth/refresh`:
  * после перезагрузки страницы вкладка восстанавливает сессию из httpOnly-cookie.
  */
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { authApi } from '@/lib/api';
@@ -36,27 +44,46 @@ export function AuthProvider({
     skipBootstrap ? (initialUser ? 'authenticated' : 'anonymous') : 'loading',
   );
   const queryClient = useQueryClient();
+  const hadSession = useRef(initialUser !== null);
 
   /**
-   * Кеш TanStack Query переживает смену пользователя, если его не сбросить:
-   * следующий вошедший увидит заявки предыдущего, пока не истечёт staleTime.
-   * Поэтому кеш чистится на каждой границе сессии — вход, выход и потеря сессии.
+   * Закрывает сессию локально. Кеш здесь **не** чистится: очистка синхронно,
+   * до перерисовки, оставляла бы наблюдателей `useQuery` включёнными, и первая
+   * же перерисовка экрана с чужими данными заводила бы запрос заново — кеш
+   * наполнялся бы обратно. Чистит эффект ниже, когда дерево уже анонимно.
    */
   const dropSession = useCallback(() => {
     clearSession();
     setUser(null);
     setStatus('anonymous');
+  }, []);
+
+  /**
+   * Вторая линия обороны: сброс кеша на переходе «был пользователь → нет».
+   * Эффект выполняется после коммита, то есть когда защищённые экраны уже
+   * размонтированы, а уцелевшие запросы к данным пользователя выключены своим
+   * `enabled` (первая линия — см. `enabled` в CabinetPage и админских экранах).
+   * Поэтому очистка не может спровоцировать перезапрос ни при каком порядке
+   * планирования обновлений.
+   */
+  useEffect(() => {
+    if (user) {
+      hadSession.current = true;
+      return;
+    }
+    if (!hadSession.current) return;
+    hadSession.current = false;
     queryClient.clear();
-  }, [queryClient]);
+  }, [user, queryClient]);
 
   useEffect(() => {
     setSessionLostHandler(() => {
+      clearSession();
       setUser(null);
       setStatus('anonymous');
-      queryClient.clear();
     });
     return () => setSessionLostHandler(null);
-  }, [queryClient]);
+  }, []);
 
   useEffect(() => {
     if (skipBootstrap) return;
@@ -87,8 +114,9 @@ export function AuthProvider({
   const login = useCallback(
     async (email: string, password: string) => {
       const result = await authApi.login(email, password);
-      // Чужих данных в кеше на момент входа быть не должно ни при каком
-      // сценарии выхода — в том числе после закрытия сессии сервером.
+      // На этот момент пользователя ещё нет, значит все запросы к его данным
+      // выключены — очистка безопасна и не может быть тут же отменена ответом
+      // «старого» запроса.
       queryClient.clear();
       setUser(result.user);
       setStatus('authenticated');

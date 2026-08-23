@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Alert, Button, Field, Section, Spinner, TextInput } from '@/components/ui';
 import { RATES_QUERY_KEY, useRates } from '@/features/pricing/use-rates';
+import { useAuth } from '@/features/auth/auth-context';
 import { adminApi } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
 import { useErrorMessage } from '@/lib/use-error-message';
@@ -54,12 +55,15 @@ const GROUP_TITLES: Readonly<Record<string, string>> = {
 export function AdminRatesPage(): JSX.Element {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const toMessage = useErrorMessage();
   const { rates } = useRates();
 
   const versions = useQuery({
     queryKey: ['admin', 'rate-versions'],
     queryFn: () => adminApi.rateVersions(),
+    // Историю версий видит только админ (MVP §3) — и только пока он в сессии.
+    enabled: user?.role === 'ADMIN',
   });
 
   const [values, setValues] = useState<Record<string, string>>(() => ({
