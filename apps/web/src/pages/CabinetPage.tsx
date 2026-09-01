@@ -10,6 +10,7 @@ import {
   DataRow,
   Field,
   Money,
+  Page,
   Section,
   Select,
   Spinner,
@@ -61,9 +62,9 @@ export function CabinetPage(): JSX.Element {
   const verified = user?.emailVerified === true;
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
+    <Page dense className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
       <div>
-        <h1 className="text-2xl font-semibold">{t('cabinet.title')}</h1>
+        <h1 className="display text-3xl">{t('cabinet.title')}</h1>
 
         {!verified ? (
           <Alert tone="warning" className="mt-4" title={t('auth.verify.bannerTitle')}>
@@ -101,7 +102,7 @@ export function CabinetPage(): JSX.Element {
           <StatusHistory request={request} locale={i18n.language} />
         </aside>
       ) : null}
-    </div>
+    </Page>
   );
 }
 
@@ -135,7 +136,7 @@ function RequestPanel({
 
       <Section title={t('cabinet.quoteTitle')} className="mt-8">
         {request.quote ? (
-          <div className="surface rounded-lg p-4">
+          <div className="surface p-4">
             <dl>
               <DataRow
                 label={t('cabinet.quoteTotal')}
@@ -397,10 +398,8 @@ function StatusHistory({
   const entries = request.statusLog ?? [];
 
   return (
-    <div className="surface rounded-lg p-4">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-600">
-        {t('cabinet.historyTitle')}
-      </h2>
+    <div className="surface p-4">
+      <h2 className="eyebrow">{t('cabinet.historyTitle')}</h2>
       <ol className="mt-3 space-y-3">
         {entries.length === 0 ? (
           <li className="text-sm text-ink-500">

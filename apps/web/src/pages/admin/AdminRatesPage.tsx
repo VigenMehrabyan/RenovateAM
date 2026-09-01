@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Alert, Button, Field, Section, Spinner, TextInput } from '@/components/ui';
+import { Alert, Button, Field, Page, Section, Spinner, TextInput } from '@/components/ui';
 import { RATES_QUERY_KEY, useRates } from '@/features/pricing/use-rates';
+import type { RateSet } from '@renovateam/pricing-core';
 import { useAuth } from '@/features/auth/auth-context';
 import { adminApi } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
@@ -53,11 +54,35 @@ const GROUP_TITLES: Readonly<Record<string, string>> = {
  * остаются на своей версии (US-7).
  */
 export function AdminRatesPage(): JSX.Element {
+  const { t } = useTranslation();
+  const { rates, isLoading } = useRates();
+
+  /**
+   * Форма заводит своё состояние из ставок один раз, в инициализаторе
+   * `useState`. Пока ответ `/pricing/rates` не пришёл, `useRates` отдаёт
+   * значения по умолчанию — и форма, смонтированная в этот момент, навсегда
+   * оставалась заполненной ими. Админ видел не действующие ставки, а
+   * встроенные, и «Сохранить» молча заменял живой набор на дефолтный.
+   * Поэтому редактор монтируется только после загрузки, а `key` пересоздаёт
+   * его, если версия набора сменилась.
+   */
+  if (isLoading) {
+    return (
+      <Page dense>
+        <h1 className="text-2xl font-semibold">{t('admin.rates.title')}</h1>
+        <Spinner label={t('common.loading')} />
+      </Page>
+    );
+  }
+
+  return <RatesEditor key={rates.versionId} rates={rates} />;
+}
+
+function RatesEditor({ rates }: { rates: RateSet }): JSX.Element {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const toMessage = useErrorMessage();
-  const { rates } = useRates();
 
   const versions = useQuery({
     queryKey: ['admin', 'rate-versions'],
@@ -120,7 +145,7 @@ export function AdminRatesPage(): JSX.Element {
   const groups = [...new Set(RATE_FIELDS.map((field) => field.group))];
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+    <Page dense className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
       <div>
         <h1 className="text-2xl font-semibold">{t('admin.rates.title')}</h1>
         <p className="mt-2 max-w-prose text-sm text-ink-600">{t('admin.rates.lead')}</p>
@@ -188,10 +213,8 @@ export function AdminRatesPage(): JSX.Element {
       </div>
 
       <aside>
-        <div className="surface rounded-lg p-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-600">
-            {t('admin.rates.historyTitle')}
-          </h2>
+        <div className="surface p-4">
+          <h2 className="eyebrow">{t('admin.rates.historyTitle')}</h2>
           {versions.isLoading ? <Spinner label={t('common.loading')} /> : null}
           <ol className="mt-3 space-y-3">
             {(versions.data?.items ?? []).map((version) => (
@@ -215,6 +238,6 @@ export function AdminRatesPage(): JSX.Element {
           </ol>
         </div>
       </aside>
-    </div>
+    </Page>
   );
 }

@@ -39,7 +39,17 @@ const PRISMA_CLIENT = {
 
 export default tseslint.config(
   {
-    ignores: ['**/node_modules/**', '**/dist/**', '**/coverage/**', 'apps/api/src/generated/**'],
+    // Локальные рабочие каталоги: логи прогонов, фикстуры и скриншоты.
+    // Кодом продукта не являются и под правила репозитория не попадают.
+    ignores: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/coverage/**',
+      'apps/api/src/generated/**',
+      '.logs/**',
+      '.fixtures/**',
+      '.screenshots*/**',
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

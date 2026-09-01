@@ -3,7 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { Alert, Button, Field, TextInput, describedBy } from '@/components/ui';
+import { Alert, Button, Field, Page, PageTitle, TextInput, describedBy } from '@/components/ui';
 import { isStaff, useAuth } from '@/features/auth/auth-context';
 import { useErrorMessage } from '@/lib/use-error-message';
 import { loginSchema } from '@/lib/validation';
@@ -43,8 +43,8 @@ export function LoginPage(): JSX.Element {
   const passwordError = errors.password?.message ? t(errors.password.message) : undefined;
 
   return (
-    <div className="mx-auto w-full max-w-md">
-      <h1 className="text-2xl font-semibold">{t('auth.login.title')}</h1>
+    <Page width="form">
+      <PageTitle>{t('auth.login.title')}</PageTitle>
 
       {formError ? (
         <Alert tone="danger" className="mt-4" title={t('errors.title')}>
@@ -84,11 +84,11 @@ export function LoginPage(): JSX.Element {
         {t('auth.login.noAccount')}{' '}
         <Link
           to="/register"
-          className="touch-target inline-flex items-center text-accent-600 underline"
+          className="touch-target inline-flex items-center text-accent-500 underline underline-offset-4"
         >
           {t('auth.login.registerLink')}
         </Link>
       </p>
-    </div>
+    </Page>
   );
 }

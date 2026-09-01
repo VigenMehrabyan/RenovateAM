@@ -6,3 +6,8 @@ coverage/
 apps/api/src/generated/
 *.log
 .screenshots/
+.logs/
+.fixtures/
+.screenshots-live/
+.screenshots-redesign/
+.screenshots-qa/

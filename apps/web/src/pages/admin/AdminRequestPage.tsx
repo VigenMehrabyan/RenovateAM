@@ -8,6 +8,7 @@ import {
   DataRow,
   Field,
   Money,
+  Page,
   Section,
   Select,
   Spinner,
@@ -49,7 +50,7 @@ export function AdminRequestPage(): JSX.Element {
   if (!data) return <Alert tone="danger">{t('errors.NOT_FOUND')}</Alert>;
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+    <Page dense className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
       <div>
         <Link
           to="/admin"
@@ -72,7 +73,7 @@ export function AdminRequestPage(): JSX.Element {
 
         <Section title={t('admin.request.paramsTitle')} className="mt-8">
           {data.estimate ? (
-            <dl className="surface rounded-lg p-4">
+            <dl className="surface p-4">
               <DataRow
                 label={t('calculator.area')}
                 value={
@@ -162,10 +163,8 @@ export function AdminRequestPage(): JSX.Element {
 
       <aside className="space-y-6">
         {data.client ? (
-          <div className="surface rounded-lg p-4">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-600">
-              {t('admin.request.clientTitle')}
-            </h2>
+          <div className="surface p-4">
+            <h2 className="eyebrow">{t('admin.request.clientTitle')}</h2>
             <dl className="mt-2">
               <DataRow label={t('auth.fields.fullName')} value={data.client.fullName} />
               <DataRow label={t('auth.fields.email')} value={data.client.email} />
@@ -178,10 +177,8 @@ export function AdminRequestPage(): JSX.Element {
           </div>
         ) : null}
 
-        <div className="surface rounded-lg p-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-600">
-            {t('admin.request.logTitle')}
-          </h2>
+        <div className="surface p-4">
+          <h2 className="eyebrow">{t('admin.request.logTitle')}</h2>
           <ol className="mt-3 space-y-3">
             {(data.statusLog ?? []).map((entry) => (
               <li key={entry.id} className="border-l-2 border-ink-200 pl-3 text-sm">
@@ -205,7 +202,7 @@ export function AdminRequestPage(): JSX.Element {
           </ol>
         </div>
       </aside>
-    </div>
+    </Page>
   );
 }
 
@@ -277,7 +274,7 @@ function QuoteUpload({ request }: { request: RequestResponse }): JSX.Element {
   return (
     <Section title={t('admin.request.quoteTitle')} className="mt-8">
       {request.quote ? (
-        <dl className="surface mb-4 rounded-lg p-4">
+        <dl className="surface mb-4 p-4">
           <DataRow
             label={t('cabinet.quoteTotal')}
             value={<Money value={request.quote.totalAmount} className="font-semibold" />}

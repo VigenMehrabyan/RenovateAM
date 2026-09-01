@@ -2,7 +2,17 @@ import { useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { Alert, Button, ButtonLink, DataRow, Field, Section, TextArea } from '@/components/ui';
+import {
+  Alert,
+  Button,
+  ButtonLink,
+  DataRow,
+  Field,
+  Page,
+  PageTitle,
+  Section,
+  TextArea,
+} from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { FileUploadSection } from '@/features/files/FileUploadSection';
 import type { UploadedItem } from '@/features/files/FileUploadSection';
@@ -59,9 +69,9 @@ export function NewRequestPage(): JSX.Element {
   };
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
+    <Page className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
       <div>
-        <h1 className="text-2xl font-semibold">{t('request.new.title')}</h1>
+        <PageTitle>{t('request.new.title')}</PageTitle>
         <p className="mt-2 max-w-prose text-sm text-ink-600">{t('request.new.lead')}</p>
 
         {!verified ? (
@@ -130,10 +140,8 @@ export function NewRequestPage(): JSX.Element {
       </div>
 
       <aside>
-        <div className="surface rounded-lg p-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-600">
-            {t('request.new.estimateTitle')}
-          </h2>
+        <div className="surface p-5">
+          <h2 className="eyebrow">{t('request.new.estimateTitle')}</h2>
           {stored ? (
             <dl className="mt-2">
               <DataRow
@@ -162,6 +170,6 @@ export function NewRequestPage(): JSX.Element {
           )}
         </div>
       </aside>
-    </div>
+    </Page>
   );
 }

@@ -3,7 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
-import { Alert, Button, Field, TextInput, describedBy } from '@/components/ui';
+import { Alert, Button, Field, Page, PageTitle, TextInput, describedBy } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { isLocale, toApiLocale } from '@/i18n';
 import { authApi } from '@/lib/api';
@@ -65,8 +65,8 @@ export function RegisterPage(): JSX.Element {
   };
 
   return (
-    <div className="mx-auto w-full max-w-xl">
-      <h1 className="text-2xl font-semibold">{t('auth.register.title')}</h1>
+    <Page width="form">
+      <PageTitle>{t('auth.register.title')}</PageTitle>
       <p className="mt-2 max-w-prose text-sm text-ink-600">{t('auth.register.lead')}</p>
       {stored ? (
         <p className="mt-1 text-sm text-ink-500">{t('auth.register.estimateAttached')}</p>
@@ -76,7 +76,7 @@ export function RegisterPage(): JSX.Element {
         <Alert tone="warning" className="mt-4" title={t('errors.EMAIL_ALREADY_REGISTERED')}>
           <Link
             to="/login"
-            className="touch-target inline-flex items-center text-accent-600 underline"
+            className="touch-target inline-flex items-center text-accent-500 underline underline-offset-4"
           >
             {t('auth.register.loginLink')}
           </Link>
@@ -179,11 +179,11 @@ export function RegisterPage(): JSX.Element {
         {t('auth.register.hasAccount')}{' '}
         <Link
           to="/login"
-          className="touch-target inline-flex items-center text-accent-600 underline"
+          className="touch-target inline-flex items-center text-accent-500 underline underline-offset-4"
         >
           {t('auth.register.loginLink')}
         </Link>
       </p>
-    </div>
+    </Page>
   );
 }
