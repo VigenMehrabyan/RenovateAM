@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
-import { Alert, Button, ButtonLink, Spinner } from '@/components/ui';
+import { Alert, Button, ButtonLink, Page, PageTitle, Spinner } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { authApi } from '@/lib/api';
 import { ApiError } from '@/lib/http';
@@ -102,8 +102,8 @@ export function VerifyEmailPage(): JSX.Element {
   );
 
   return (
-    <div className="mx-auto w-full max-w-xl">
-      <h1 className="text-2xl font-semibold">{t('auth.verify.title')}</h1>
+    <Page width="form">
+      <PageTitle>{t('auth.verify.title')}</PageTitle>
 
       {state === 'checking' ? <Spinner label={t('auth.verify.checking')} /> : null}
 
@@ -172,6 +172,6 @@ export function VerifyEmailPage(): JSX.Element {
           )}
         </>
       ) : null}
-    </div>
+    </Page>
   );
 }

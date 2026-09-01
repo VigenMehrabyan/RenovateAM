@@ -1,7 +1,7 @@
 import { Component } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Button } from './ui';
+import { Alert, Button, Page } from './ui';
 
 /**
  * Последний рубеж: без него любая ошибка отрисовки (например, ответ API,
@@ -14,14 +14,14 @@ import { Alert, Button } from './ui';
 function Fallback({ onRetry }: { onRetry: () => void }): JSX.Element {
   const { t } = useTranslation();
   return (
-    <div className="max-w-prose">
+    <Page width="prose">
       <Alert tone="danger" title={t('errors.title')}>
         {t('errors.UNKNOWN')}
       </Alert>
       <Button variant="secondary" className="mt-4" onClick={onRetry}>
         {t('errors.retry')}
       </Button>
-    </div>
+    </Page>
   );
 }
 

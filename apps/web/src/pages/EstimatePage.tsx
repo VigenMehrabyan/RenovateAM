@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { calculateEstimate, EstimateValidationError } from '@renovateam/pricing-core';
 import type { AutomaticEstimateResult, EstimateResult } from '@renovateam/pricing-core';
-import { Alert, ButtonLink, DataRow, Money, Spinner } from '@/components/ui';
+import { Alert, ButtonLink, DataRow, Money, Page, PageTitle, Spinner } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { useRates } from '@/features/pricing/use-rates';
 import { readEstimate } from '@/lib/estimate-storage';
@@ -28,22 +28,22 @@ export function EstimatePage(): JSX.Element {
   // Если ставки не пришли вовсе (сеть) — считаем по умолчанию, как задумано.
   if (isLoading) {
     return (
-      <div className="max-w-prose">
-        <h1 className="text-2xl font-semibold">{t('result.title')}</h1>
+      <Page width="prose">
+        <PageTitle>{t('result.title')}</PageTitle>
         <Spinner label={t('common.loading')} />
-      </div>
+      </Page>
     );
   }
 
   if (!stored) {
     return (
-      <div className="max-w-prose">
-        <h1 className="text-2xl font-semibold">{t('result.title')}</h1>
+      <Page width="prose">
+        <PageTitle>{t('result.title')}</PageTitle>
         <p className="mt-3 text-ink-600">{t('result.empty')}</p>
         <ButtonLink to="/" className="mt-5">
           {t('result.toCalculator')}
         </ButtonLink>
-      </div>
+      </Page>
     );
   }
 
@@ -53,8 +53,8 @@ export function EstimatePage(): JSX.Element {
   } catch (error) {
     const code = error instanceof EstimateValidationError ? error.code : 'AREA_OUT_OF_RANGE';
     return (
-      <div className="max-w-prose">
-        <h1 className="text-2xl font-semibold">{t('result.title')}</h1>
+      <Page width="prose">
+        <PageTitle>{t('result.title')}</PageTitle>
         <Alert tone="danger" className="mt-4" title={t('errors.title')}>
           {code === 'AREA_NOT_A_NUMBER'
             ? t('calculator.validation.areaNumber')
@@ -63,7 +63,7 @@ export function EstimatePage(): JSX.Element {
         <ButtonLink to="/" variant="secondary" className="mt-5">
           {t('result.recalculate')}
         </ButtonLink>
-      </div>
+      </Page>
     );
   }
 
@@ -71,9 +71,9 @@ export function EstimatePage(): JSX.Element {
   validUntil.setDate(validUntil.getDate() + validityDays);
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+    <Page className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
       <div>
-        <h1 className="text-2xl font-semibold sm:text-3xl">{t('result.title')}</h1>
+        <PageTitle>{t('result.title')}</PageTitle>
 
         {result.needsManualReview ? (
           <ManualReviewPanel />
@@ -86,10 +86,10 @@ export function EstimatePage(): JSX.Element {
         )}
       </div>
 
-      <aside className="lg:pt-14">
+      <aside className="lg:pt-16">
         <ParametersCard input={stored.input} result={result} />
       </aside>
-    </div>
+    </Page>
   );
 }
 
@@ -106,14 +106,21 @@ function AutomaticPanel({
   const { t } = useTranslation();
 
   return (
-    <section className="mt-5 border-l-4 border-accent-500 bg-white p-4 sm:p-6" aria-live="polite">
-      <p className="text-sm text-ink-600">{t('result.rangeLabel')}</p>
+    <section
+      className="mt-6 border border-ink-200 border-l-[3px] border-l-gold-500 bg-white p-5 sm:p-7"
+      aria-live="polite"
+    >
+      <p className="eyebrow">{t('result.rangeLabel')}</p>
+      {/* Пара «подпись + сумма» переносится внутри себя (`flex-wrap`): сама
+          сумма не рвётся никогда (`Money`), но связка «մինչև 104 868 960 ֏»
+          на hy задавала карточке min-content 309 px — на 320 px страница
+          уезжала вправо, а `overflow-x: hidden` на body это прятало. */}
       <p className="mt-2 flex flex-wrap items-baseline gap-x-5 gap-y-1">
-        <span className="inline-flex items-baseline gap-2">
+        <span className="inline-flex flex-wrap items-baseline gap-x-2">
           <span className="text-sm text-ink-500">{t('result.from')}</span>
           <Money value={result.amountMin} className="text-2xl font-semibold sm:text-4xl" />
         </span>
-        <span className="inline-flex items-baseline gap-2">
+        <span className="inline-flex flex-wrap items-baseline gap-x-2">
           <span className="text-sm text-ink-500">{t('result.to')}</span>
           <Money value={result.amountMax} className="text-2xl font-semibold sm:text-4xl" />
         </span>
@@ -140,11 +147,14 @@ function ManualReviewPanel(): JSX.Element {
   const { t } = useTranslation();
 
   return (
-    <section className="mt-5 border-l-4 border-amber-500 bg-amber-50 p-4 sm:p-6" aria-live="polite">
-      <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+    <section
+      className="mt-6 border border-amber-100 border-l-[3px] border-l-amber-500 bg-amber-50 p-5 sm:p-7"
+      aria-live="polite"
+    >
+      <p className="text-xs font-medium uppercase tracking-brand text-amber-700">
         {t('result.designer.badge')}
       </p>
-      <h2 className="mt-2 text-xl font-semibold text-ink-900">{t('result.designer.title')}</h2>
+      <h2 className="display mt-3 text-2xl sm:text-3xl">{t('result.designer.title')}</h2>
       <p className="mt-2 max-w-prose text-sm text-ink-700">{t('result.designer.text')}</p>
       <p className="mt-2 max-w-prose text-sm text-ink-600">{t('result.designer.noPriceNote')}</p>
       <div className="mt-5 flex flex-wrap gap-3">
@@ -168,11 +178,11 @@ function PackageContents(): JSX.Element {
   const items = t('landing.packageItems', { returnObjects: true }) as string[];
 
   return (
-    <section className="mt-8" aria-labelledby="result-package">
-      <h2 className="text-lg font-semibold" id="result-package">
+    <section className="mt-10" aria-labelledby="result-package">
+      <h2 className="display text-2xl" id="result-package">
         {t('result.includedTitle')}
       </h2>
-      <ul className="mt-3 divide-y divide-ink-200 border-y border-ink-200">
+      <ul className="mt-4 divide-y divide-ink-200 border-y border-ink-200">
         {items.map((item) => (
           <li key={item} className="py-2 text-sm text-ink-700">
             {item}
@@ -193,10 +203,8 @@ function ParametersCard({
   const { t } = useTranslation();
 
   return (
-    <div className="surface rounded-lg p-4">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-600">
-        {t('result.parametersTitle')}
-      </h2>
+    <div className="surface p-5">
+      <h2 className="eyebrow">{t('result.parametersTitle')}</h2>
       <dl className="mt-2">
         <DataRow
           label={t('calculator.area')}
@@ -230,9 +238,7 @@ function ParametersCard({
 
       {result.needsManualReview ? null : (
         <>
-          <h3 className="mt-4 text-sm font-semibold uppercase tracking-wide text-ink-600">
-            {t('result.coefficientsTitle')}
-          </h3>
+          <h3 className="eyebrow mt-6">{t('result.coefficientsTitle')}</h3>
           <dl className="mt-2">
             <DataRow
               label={t('calculator.workScope')}

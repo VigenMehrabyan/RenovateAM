@@ -40,32 +40,104 @@
     "eyebrow": "Armenia · priced in AMD",
     "title": "Renovation cost before the surveyor visits",
     "lead": "Six parameters and you see the price range for the standard package. No calls, no sign-up.",
-    "baseRateLabel": "Standard package base rate",
-    "baseRateUnit": "per 1 m²",
+    "heroStatus": "Estimator replies within 1–2 business days",
+    "claims": [
+      {
+        "title": "Price before the visit",
+        "text": "The standard-package range is visible before anyone touches the request."
+      },
+      {
+        "title": "No phone calls",
+        "text": "No sales manager, no waiting for a callback: six fields and the result on screen."
+      },
+      {
+        "title": "Computed in the browser",
+        "text": "The same engine runs here and on the server. The network is not in the way of the number."
+      },
+      {
+        "title": "Quote in two days",
+        "text": "An estimator reviews the request and sends a detailed line-by-line quote."
+      }
+    ],
+    "stepsEyebrow": "How the work runs",
     "howTitle": "How it works",
     "steps": [
       {
         "title": "Instant estimate",
-        "text": "You set the area, property type and scope of work. The range is computed in your browser, instantly."
+        "text": "You set the area, property type and scope of work. The standard-package range is computed in your browser, instantly."
       },
       {
         "title": "Request with files",
-        "text": "After signing up you upload the BTI floor plan and design references. Files are optional."
+        "text": "After signing up you upload the BTI floor plan and design references. Files are optional — the request goes through without them."
       },
       {
         "title": "Quote from an estimator",
-        "text": "The estimator prepares a detailed quote within 1–2 business days. You accept or reject it."
+        "text": "The estimator reviews the request and prepares a detailed line-by-line quote within 1–2 business days."
+      },
+      {
+        "title": "Your decision",
+        "text": "You accept the quote or reject it with a reason. The decision is final."
       }
     ],
+    "packagesEyebrow": "Work packages",
+    "packagesTitle": "Three scopes of work and a design project",
+    "packagesLead": "The rate per m² follows the current base rate. The final range also depends on property type, condition and ceiling height — the calculator accounts for those.",
+    "packages": {
+      "ROUGH": "Screed, plaster, electrical and water routing. No finishing coverings.",
+      "FINISHING": "Finishing coverings, doors and plumbing on prepared surfaces.",
+      "TURNKEY": "The full cycle: from rough works to finishing and the clean-up after them."
+    },
+    "baseRateLabel": "Standard package base rate",
+    "baseRateUnit": "per 1 m²",
+    "designerCard": {
+      "badge": "Manual pricing required",
+      "title": "Design project",
+      "text": "Bespoke solutions, non-standard materials and work following your own design project.",
+      "noPrice": "No formula applies here — the estimator prices it from your materials.",
+      "cta": "Go to the request"
+    },
     "packageTitle": "What the standard package covers",
-    "packageNote": "Design solutions are not covered — they are priced individually.",
     "packageItems": [
       "Rough and finishing works, turnkey",
       "Electrical wiring and water supply to a standard layout",
       "Levelling of walls, floors and ceilings",
       "Standard doors, coverings and plumbing from the base range",
       "Debris removal and post-construction cleaning"
-    ]
+    ],
+    "packageNote": "Design solutions are not covered — they are priced individually.",
+    "faqTitle": "Questions and answers",
+    "faq": [
+      {
+        "q": "How long does the quote take?",
+        "a": "The estimator replies within 1–2 business days. The instant estimate needs no waiting at all."
+      },
+      {
+        "q": "What if the area turns out different?",
+        "a": "The estimate is preliminary. After the survey the area is corrected and the quote is recomputed at the same rates — nothing has to be renegotiated."
+      },
+      {
+        "q": "Where does the price come from?",
+        "a": "The base rate per m² is multiplied by the coefficients for scope of work, property type, condition and ceiling height. The range is that amount minus and plus 15%."
+      },
+      {
+        "q": "What is not included?",
+        "a": "Design solutions, non-standard materials, layout changes and approvals. The estimator prices all of that separately."
+      }
+    ],
+    "closingTitle": "Work out your own range — it takes a minute",
+    "closingCta": "To the calculator"
+  },
+  "footer": {
+    "navTitle": "Navigation",
+    "sectionsTitle": "Sections",
+    "anchors": {
+      "packages": "Work packages",
+      "steps": "How the work runs",
+      "included": "What the package covers",
+      "faq": "Questions and answers"
+    },
+    "legal": "Prices on this site are a preliminary estimate, not an offer. The exact cost is set by the quote prepared after the on-site survey and may differ from the estimate.",
+    "rights": "© {{year}} RenovateAM. Yerevan, Armenia."
   },
   "calculator": {
     "title": "Instant estimate",

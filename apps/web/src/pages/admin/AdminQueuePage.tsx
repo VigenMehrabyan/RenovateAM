@@ -7,6 +7,7 @@ import {
   Button,
   Field,
   Money,
+  Page,
   Select,
   Spinner,
   StatusBadge,
@@ -59,7 +60,7 @@ export function AdminQueuePage(): JSX.Element {
   });
 
   return (
-    <div>
+    <Page dense>
       <h1 className="text-2xl font-semibold">{t('admin.queue.title')}</h1>
 
       <form
@@ -230,6 +231,6 @@ export function AdminQueuePage(): JSX.Element {
           </div>
         </>
       ) : null}
-    </div>
+    </Page>
   );
 }

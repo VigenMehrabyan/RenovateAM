@@ -7,14 +7,19 @@
 import { useTranslation } from 'react-i18next';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { isStaff, useAuth } from '@/features/auth/auth-context';
-import { Spinner } from './ui';
+import { Page, Spinner } from './ui';
 
 export function RequireAuth(): JSX.Element {
   const { status } = useAuth();
   const location = useLocation();
   const { t } = useTranslation();
 
-  if (status === 'loading') return <Spinner label={t('common.loading')} />;
+  if (status === 'loading')
+    return (
+      <Page>
+        <Spinner label={t('common.loading')} />
+      </Page>
+    );
   if (status === 'anonymous') return <Navigate to="/login" replace state={{ from: location }} />;
   return <Outlet />;
 }
@@ -24,7 +29,12 @@ export function RequireStaff(): JSX.Element {
   const location = useLocation();
   const { t } = useTranslation();
 
-  if (status === 'loading') return <Spinner label={t('common.loading')} />;
+  if (status === 'loading')
+    return (
+      <Page>
+        <Spinner label={t('common.loading')} />
+      </Page>
+    );
   if (status === 'anonymous') return <Navigate to="/login" replace state={{ from: location }} />;
   if (!isStaff(user)) return <Navigate to="/cabinet" replace />;
   return <Outlet />;

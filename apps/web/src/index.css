@@ -1,5 +1,8 @@
-/* Гарнитуры самохостятся: на локали hy интерфейс обязан отрисоваться
-   армянским Noto, а не молча уехать на системный запасной шрифт. */
+/* Гарнитуры самохостятся.
+   Интерфейс, формы и цифры — Noto Sans (+ армянский Noto Sans).
+   Маркетинговый слой — Cormorant Garamond, та же гарнитура, что в логотипе.
+   Cormorant армянское письмо не покрывает: на локали hy заголовки берёт
+   Noto Serif Armenian — серифная, с армянским покрытием. */
 @import '@fontsource/noto-sans/latin-400.css';
 @import '@fontsource/noto-sans/latin-500.css';
 @import '@fontsource/noto-sans/latin-600.css';
@@ -15,6 +18,13 @@
 @import '@fontsource/noto-sans-mono/latin-400.css';
 @import '@fontsource/noto-sans-mono/latin-500.css';
 
+@import '@fontsource/cormorant-garamond/latin-500.css';
+@import '@fontsource/cormorant-garamond/latin-600.css';
+@import '@fontsource/cormorant-garamond/cyrillic-500.css';
+@import '@fontsource/cormorant-garamond/cyrillic-600.css';
+@import '@fontsource/noto-serif-armenian/armenian-500.css';
+@import '@fontsource/noto-serif-armenian/armenian-600.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -24,14 +34,18 @@
     /* Латиница и кириллица. Армянский добавлен запасным: даже отдельные
        армянские слова внутри ru/en-текста получают правильные глифы. */
     --font-ui: 'Noto Sans', 'Noto Sans Armenian', system-ui, sans-serif;
+    --font-display: 'Cormorant Garamond', 'Noto Serif Armenian', Georgia, serif;
     --page-bg: theme('colors.ink.50');
     --surface: #ffffff;
     --hairline: theme('colors.ink.200');
   }
 
-  /* Активная локаль армянская — ведущей становится армянская гарнитура. */
+  /* Активная локаль армянская — ведущими становятся армянские гарнитуры.
+     Cormorant армянских глифов не содержит вовсе: без этой подмены заголовки
+     на hy молча уезжали бы на системный шрифт. */
   html[lang='hy'] {
     --font-ui: 'Noto Sans Armenian', 'Noto Sans', system-ui, sans-serif;
+    --font-display: 'Noto Serif Armenian', 'Cormorant Garamond', Georgia, serif;
   }
 
   html {
@@ -69,15 +83,9 @@
     border-radius: 2px;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
-      scroll-behavior: auto !important;
-    }
+  /* Фокус на тёмной плоскости изумрудом не виден — там обводка шампанью. */
+  .on-dark :focus-visible {
+    outline-color: theme('colors.gold.500');
   }
 }
 
@@ -91,10 +99,15 @@
     @apply mb-1 block text-sm font-medium text-ink-700;
   }
 
+  /* Обводки фокуса тут нет намеренно: её задаёт общее правило `:focus-visible`
+     из @layer base. Прежний `focus:outline-none` из утилит перекрывал его
+     (утилиты идут после base) и ставил `outline: 2px solid transparent` —
+     у полей форм не оставалось ни одного видимого признака фокуса, кроме
+     смены цвета границы на 1 px. Подсказка-заполнитель взята на ступень
+     темнее: `ink-400` давал 2.66:1 на белом. */
   .field-control {
-    @apply touch-target w-full rounded border border-ink-300 bg-white px-3 py-2 text-ink-900
-      placeholder:text-ink-400 focus:border-accent-500 focus:outline-none focus:ring-2
-      focus:ring-accent-200 disabled:bg-ink-100 disabled:text-ink-500;
+    @apply touch-target w-full rounded-none border border-ink-300 bg-white px-3 py-2 text-ink-900
+      placeholder:text-ink-500 focus:border-accent-500 disabled:bg-ink-100 disabled:text-ink-500;
   }
 
   .field-error {
@@ -103,6 +116,78 @@
 
   .surface {
     @apply border border-ink-200 bg-white;
+  }
+
+  /* Кнопка: заливка выезжает слева. Без свечения и без тени. */
+  .btn-fill {
+    position: relative;
+    overflow: hidden;
+    z-index: 0;
+  }
+
+  .btn-fill::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: var(--btn-fill, transparent);
+    transform: scaleX(0);
+    transform-origin: left center;
+  }
+
+  .motion .btn-fill::before {
+    transition: transform 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+
+  .btn-fill:hover::before,
+  .btn-fill:focus-visible::before {
+    transform: scaleX(1);
+  }
+
+  .btn-fill:disabled::before {
+    transform: scaleX(0);
+  }
+
+  /* Карточка пакета: очень лёгкий подъём и уплотнение границы на наведении. */
+  .lift-card {
+    @apply border border-ink-200 bg-white;
+  }
+
+  .motion .lift-card {
+    transition:
+      transform 180ms ease-out,
+      border-color 180ms ease-out,
+      box-shadow 180ms ease-out;
+  }
+
+  .lift-card:hover {
+    @apply border-accent-300 shadow-lift;
+    transform: translateY(-2px);
+  }
+
+  /* Маркетинговый заголовок: Cormorant, крупно, умеренный трекинг.
+
+     `overflow-wrap: anywhere` — по той же причине, что и в `.user-text`:
+     только он уменьшает min-content заголовка. Армянские слова длиннее
+     русских, и на 320 px «Նախնական գնահատում» кеглем 30 px задавало колонке
+     ширину 309 px — страница уезжала вправо, а `overflow-x: hidden` на body
+     это прятало. Перенос внутри слова срабатывает лишь тогда, когда слово
+     иначе не помещается вовсе. */
+  .display {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    line-height: 1.08;
+    overflow-wrap: anywhere;
+  }
+
+  /* Надзаголовок секции: капслок, трекинг как в логотипе. */
+  .eyebrow {
+    @apply text-xs font-medium uppercase tracking-brand text-ink-500;
+  }
+
+  .eyebrow-gold {
+    @apply text-xs font-medium uppercase tracking-brand text-gold-500;
   }
 
   /* Текст, пришедший от пользователя (комментарии, адреса, имена файлов),
@@ -114,5 +199,102 @@
      min-content, то есть реально позволяет flex-элементу сжаться. */
   .user-text {
     overflow-wrap: anywhere;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Движение                                                                    */
+/*                                                                             */
+/* Правило одно: контент виден всегда. Ни одно из состояний ниже не действует, */
+/* пока скрипт не поставил на <html> класс `motion` — он ставится только если  */
+/* пользователь не просил уменьшить движение (см. src/lib/motion.ts). Если     */
+/* скрипты не выполнились, страница остаётся полностью читаемой.               */
+/* -------------------------------------------------------------------------- */
+
+@layer utilities {
+  /* Появление блока при попадании в область просмотра. */
+  .motion [data-reveal] {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  .motion [data-reveal].is-visible {
+    opacity: 1;
+    transform: none;
+    transition:
+      opacity 420ms cubic-bezier(0.22, 0.61, 0.36, 1),
+      transform 420ms cubic-bezier(0.22, 0.61, 0.36, 1);
+    transition-delay: var(--reveal-delay, 0ms);
+  }
+
+  /* Размерная линия чертежа: прочерчивается от левой засечки к правой. */
+  .motion .dimension-line {
+    stroke-dasharray: var(--dim-length, 400);
+    stroke-dashoffset: var(--dim-length, 400);
+  }
+
+  .motion .dimension-line.is-visible {
+    stroke-dashoffset: 0;
+    transition: stroke-dashoffset 700ms cubic-bezier(0.22, 0.61, 0.36, 1);
+    transition-delay: var(--reveal-delay, 0ms);
+  }
+
+  /* Сборка арки: половины кладки выходят снизу, замковый камень опускается
+     сверху и встаёт в разрыв. Один раз, на загрузке героя. */
+  .motion .arch-leg {
+    animation: arch-leg-rise 620ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  }
+
+  .motion .arch-leg-right {
+    animation-delay: 90ms;
+  }
+
+  .motion .arch-key {
+    animation: arch-key-drop 520ms cubic-bezier(0.34, 1.2, 0.64, 1) both;
+    animation-delay: 520ms;
+  }
+
+  @keyframes arch-leg-rise {
+    from {
+      opacity: 0;
+      transform: translateY(26px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes arch-key-drop {
+    from {
+      opacity: 0;
+      transform: translateY(-22px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+/* Пользователь попросил уменьшить движение — движения нет вовсе.
+   Не «медленнее», а выключено: класс `motion` при этом не ставится,
+   но правило ниже страхует и на случай смены настройки на лету. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+
+  .motion [data-reveal],
+  .motion .dimension-line,
+  .motion .arch-leg,
+  .motion .arch-key {
+    opacity: 1 !important;
+    transform: none !important;
+    stroke-dashoffset: 0 !important;
   }
 }

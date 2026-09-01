@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { App } from './App';
 import { AuthProvider } from './features/auth/auth-context';
+import { setupMotion } from './lib/motion';
 import './i18n';
 import './index.css';
 
@@ -12,6 +13,10 @@ const queryClient = new QueryClient({
     queries: { refetchOnWindowFocus: false, retry: 1, staleTime: 30_000 },
   },
 });
+
+// Движение включается только здесь и только если пользователь его не отключал:
+// без выполненного скрипта на странице нет ни одного спрятанного блока.
+setupMotion();
 
 const container = document.getElementById('root');
 if (!container) throw new Error('#root not found');

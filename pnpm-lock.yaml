@@ -166,6 +166,9 @@ importers:
         specifier: ^3.23.8
         version: 3.25.76
     devDependencies:
+      '@fontsource/cormorant-garamond':
+        specifier: ^5.3.0
+        version: 5.3.0
       '@fontsource/noto-sans':
         specifier: ^5.3.0
         version: 5.3.0
@@ -173,6 +176,9 @@ importers:
         specifier: ^5.3.0
         version: 5.3.0
       '@fontsource/noto-sans-mono':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@fontsource/noto-serif-armenian':
         specifier: ^5.3.0
         version: 5.3.0
       '@testing-library/dom':
@@ -765,6 +771,9 @@ packages:
     resolution: {integrity: sha512-43/qtrDUokr7LJqoF2c3+RInu/t4zfrpYdoSDfYyhg52rwLV6TnOvdG4fXm7IkSB3wErkcmJS9iEhjVtOSEjjA==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
 
+  '@fontsource/cormorant-garamond@5.3.0':
+    resolution: {integrity: sha512-weuGsCirGVWBWqpt6YUp0yLThTe4G8YO45noq8wxeJCRvEpq5lFrxNMFSTxcyOyV5k5otzJ8guDzYegdYlcLMQ==}
+
   '@fontsource/noto-sans-armenian@5.3.0':
     resolution: {integrity: sha512-ot9KkRsd2hDXGIMZQeRSvtsw1uoFIBIS+yL7ZLDHY8GpT2LJz7FaCxGT07Iudu0yNTlSEYNLLAbKcy2ZUIjzUA==}
 
@@ -773,6 +782,9 @@ packages:
 
   '@fontsource/noto-sans@5.3.0':
     resolution: {integrity: sha512-fBCog2PY7DiVVTEEqtI/Qdinx/knobHYfoGpjFXdfBX5RoJaBp1Prw2G75p0OIsdlMZg3cLo0c+YbIUYOxnQJw==}
+
+  '@fontsource/noto-serif-armenian@5.3.0':
+    resolution: {integrity: sha512-kWKEd1YgIlWjOHPsfO0XO+O222TFwXI1Lz3szGyMcF6W+isCafE9xsItG1dTr2zqIw+2b2JL5VylGUsMMTT/XQ==}
 
   '@hookform/resolvers@3.10.0':
     resolution: {integrity: sha512-79Dv+3mDF7i+2ajj7SkypSKHhl1cbln1OGavqrsF7p6mbUv11xpqpacPsGDCTRvCSjEEIez2ef1NveSVL3b0Ag==}
@@ -3821,11 +3833,15 @@ snapshots:
       '@eslint/core': 0.17.0
       levn: 0.4.1
 
+  '@fontsource/cormorant-garamond@5.3.0': {}
+
   '@fontsource/noto-sans-armenian@5.3.0': {}
 
   '@fontsource/noto-sans-mono@5.3.0': {}
 
   '@fontsource/noto-sans@5.3.0': {}
+
+  '@fontsource/noto-serif-armenian@5.3.0': {}
 
   '@hookform/resolvers@3.10.0(react-hook-form@7.86.0(react@18.3.1))':
     dependencies:

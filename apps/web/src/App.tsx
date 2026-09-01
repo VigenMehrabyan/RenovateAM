@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Link, Route, Routes } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
+import { Page, PageTitle } from '@/components/ui';
 import { RequireAuth, RequireStaff } from '@/components/guards';
 import { CabinetPage } from '@/pages/CabinetPage';
 import { EstimatePage } from '@/pages/EstimatePage';
@@ -16,13 +17,13 @@ import { AdminRequestPage } from '@/pages/admin/AdminRequestPage';
 function NotFoundPage(): JSX.Element {
   const { t } = useTranslation();
   return (
-    <div className="max-w-prose">
-      <h1 className="text-2xl font-semibold">{t('notFound.title')}</h1>
-      <p className="mt-2 text-ink-600">{t('notFound.text')}</p>
-      <Link to="/" className="mt-4 inline-block text-accent-600 underline">
+    <Page width="prose">
+      <PageTitle>{t('notFound.title')}</PageTitle>
+      <p className="mt-3 text-ink-600">{t('notFound.text')}</p>
+      <Link to="/" className="mt-4 inline-block text-accent-500 underline underline-offset-4">
         {t('notFound.home')}
       </Link>
-    </div>
+    </Page>
   );
 }
 

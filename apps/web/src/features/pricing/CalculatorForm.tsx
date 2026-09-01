@@ -148,7 +148,7 @@ export function CalculatorForm(): JSX.Element {
         </Select>
       </Field>
 
-      <Button type="submit" className="sm:col-span-2" disabled={isSubmitting}>
+      <Button type="submit" className="mt-1 w-full sm:col-span-2" disabled={isSubmitting}>
         {t('calculator.submit')}
       </Button>
     </form>

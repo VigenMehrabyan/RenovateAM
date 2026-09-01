@@ -1,7 +1,7 @@
 /**
  * Небольшой набор примитивов. Оформление задано токенами из tailwind.config.ts:
- * прохладный нейтральный фон, чертёжный синий акцент, семантика статусов —
- * отдельными цветами, не акцентом.
+ * изумрудный акцент фирменного стиля, шампань — только акцентом, семантика
+ * статусов вынесена отдельными цветами и с акцентом не смешивается.
  */
 import { forwardRef } from 'react';
 import type {
@@ -17,19 +17,35 @@ import { formatAmd } from '@/lib/format';
 
 /* --------------------------------- Button ---------------------------------- */
 
-type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
+/**
+ * Варианты кнопок.
+ *  · `primary`  — на светлом: изумруд со светлым текстом;
+ *  · `onDark`   — на тёмной плоскости: шампань с тёмным текстом;
+ *  · остальные — вспомогательные.
+ * Заливка при наведении выезжает слева (`.btn-fill`), свечения нет.
+ */
+type ButtonVariant = 'primary' | 'onDark' | 'secondary' | 'ghost' | 'danger';
 
+// Перенос подписи оставлен включённым намеренно: армянское «Ուղարկել հայտը
+// մասնագետին» одной строкой задаёт кнопке min-content 265 px и вместе с полями
+// карточки уводит страницу за 320 px. Кнопкам, которым перенос вреден
+// (шапка), `whitespace-nowrap` ставится точечно.
 const BUTTON_BASE =
-  'touch-target inline-flex items-center justify-center gap-2 rounded px-4 py-2 text-sm ' +
-  'font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60';
+  'btn-fill touch-target inline-flex items-center justify-center gap-2 rounded-none px-5 py-2 ' +
+  'text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60';
 
 const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
-  primary: 'bg-accent-500 text-white hover:bg-accent-600',
-  secondary:
-    'border border-ink-300 bg-white text-ink-800 hover:border-accent-400 hover:text-accent-600',
-  ghost: 'text-accent-600 hover:bg-accent-50',
-  danger: 'border border-danger-500 bg-white text-danger-500 hover:bg-danger-50',
+  primary: 'bg-accent-500 text-ink-50 [--btn-fill:#0a1f1a]',
+  onDark: 'bg-gold-500 text-ink-900 [--btn-fill:#e3d2b2]',
+  secondary: 'border border-ink-300 bg-white text-ink-800 [--btn-fill:#edf1ee]',
+  ghost: 'text-accent-500 underline underline-offset-4 [--btn-fill:#edf1ee]',
+  danger: 'border border-danger-500 bg-white text-danger-500 [--btn-fill:#f7eceb]',
 };
+
+/** Классы кнопки для случаев, где нужен обычный `<a>` (якорь на этой же странице). */
+export function buttonClass(variant: ButtonVariant = 'primary', className = ''): string {
+  return `${BUTTON_BASE} ${BUTTON_VARIANTS[variant]} ${className}`;
+}
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
@@ -55,6 +71,47 @@ export function ButtonLink({
       {children}
     </Link>
   );
+}
+
+/* --------------------------------- Page ------------------------------------ */
+
+/**
+ * Колонка содержимого прикладного экрана. Вынесена из Layout: лендинг
+ * раскладывает плоскости на всю ширину сам, все остальные экраны живут
+ * в общей колонке с одинаковыми полями.
+ */
+export function Page({
+  children,
+  className = '',
+  width = 'wide',
+  dense = false,
+}: {
+  children: ReactNode;
+  className?: string;
+  /** `prose` — узкая колонка для текстовых экранов, `form` — для форм. */
+  width?: 'wide' | 'prose' | 'form';
+  /**
+   * Плотная вертикаль. Кабинет и админка: сметчик работает в очереди часами,
+   * там нужна плотность, а не воздух.
+   */
+  dense?: boolean;
+}): JSX.Element {
+  const widths = { wide: 'max-w-6xl', prose: 'max-w-prose', form: 'max-w-xl' } as const;
+  const padding = dense ? 'py-6' : 'py-8 sm:py-12';
+  return (
+    <div className={`mx-auto w-full ${widths[width]} px-4 ${padding} ${className}`}>{children}</div>
+  );
+}
+
+/** Заголовок прикладного экрана: маркетинговая гарнитура, спокойный кегль. */
+export function PageTitle({
+  children,
+  className = '',
+}: {
+  children: ReactNode;
+  className?: string;
+}): JSX.Element {
+  return <h1 className={`display text-3xl sm:text-4xl ${className}`}>{children}</h1>;
 }
 
 /* --------------------------------- Fields ---------------------------------- */
@@ -147,7 +204,7 @@ export function Alert({
 }): JSX.Element {
   return (
     <div
-      className={`user-text border border-ink-200 border-l-4 px-4 py-3 text-sm ${ALERT_TONES[tone]} ${className}`}
+      className={`user-text border border-ink-200 border-l-[3px] px-4 py-3 text-sm ${ALERT_TONES[tone]} ${className}`}
       role={tone === 'danger' ? 'alert' : 'status'}
     >
       {title ? <p className="font-semibold">{title}</p> : null}
@@ -162,7 +219,7 @@ const STATUS_TONES: Record<RequestStatus, string> = {
   NEW: 'bg-ink-100 text-ink-700 border-ink-300',
   IN_PROGRESS: 'bg-accent-50 text-accent-700 border-accent-200',
   NEEDS_INFO: 'bg-amber-50 text-amber-700 border-amber-100',
-  QUOTE_READY: 'bg-accent-500 text-white border-accent-500',
+  QUOTE_READY: 'bg-accent-500 text-ink-50 border-accent-500',
   ACCEPTED: 'bg-success-50 text-success-600 border-success-100',
   REJECTED: 'bg-danger-50 text-danger-600 border-danger-100',
 };
@@ -176,7 +233,7 @@ export function StatusBadge({
 }): JSX.Element {
   return (
     <span
-      className={`inline-flex items-center whitespace-nowrap rounded border px-2 py-1 text-xs font-medium ${STATUS_TONES[status]}`}
+      className={`inline-flex items-center whitespace-nowrap rounded-none border px-2 py-1 text-xs font-medium ${STATUS_TONES[status]}`}
     >
       {label}
     </span>

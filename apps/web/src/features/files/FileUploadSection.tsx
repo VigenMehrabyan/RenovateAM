@@ -187,6 +187,10 @@ export function FileUploadSection({
           className="sr-only"
           accept=".pdf,.jpg,.jpeg,.png,.dwg,application/pdf,image/jpeg,image/png"
           disabled={disabled}
+          // Поле спрятано визуально, но остаётся в дереве доступности: без
+          // имени программа чтения объявляла его просто «кнопка выбора файла»,
+          // не называя, план это БТИ или дизайн.
+          aria-label={title}
           aria-describedby={`${inputId}-formats`}
           onChange={(event) => {
             accept(event.target.files);
