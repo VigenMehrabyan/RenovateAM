@@ -12,6 +12,12 @@
   PNPM_VERSION = "10"
   # Фронт обращается к API по относительному пути — его проксирует правило ниже.
   VITE_API_URL = "/api/v1"
+  # Origin бекенда на Railway. Не секрет: адрес и так виден в редиректах и в
+  # сетевых запросах браузера. Держим его здесь, а не в переменных панели, чтобы
+  # сборка была воспроизводимой и не ломалась от того, что переменную забыли
+  # задать или она потерялась. Переменная окружения в панели, если её задать,
+  # имеет приоритет — так можно указать другой адрес, ничего не меняя в коде.
+  API_URL = "https://renovateam-production.up.railway.app"
 
 # API proxy is generated as apps/web/dist/_redirects during the build.
 # API_URL must be the HTTPS origin of the backend and have Builds scope.
