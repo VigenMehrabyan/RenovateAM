@@ -121,10 +121,12 @@ pnpm install
 cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env
 
-pnpm --filter api prisma migrate dev
-pnpm --filter api prisma db seed      # базовая ставка 60 000 AMD и коэффициенты
+pnpm db:setup                           # применение миграций PostgreSQL
+pnpm db:seed                            # базовая ставка 60 000 AMD и коэффициенты
 
-pnpm dev                               # web :5173 · api :3000
+pnpm dev                               # web :5173
+# В отдельном терминале:
+pnpm --filter @renovateam/api start:dev  # api :3000
 ```
 
 ### Переменные окружения
@@ -145,18 +147,25 @@ pnpm dev                               # web :5173 · api :3000
 |---|---|
 | `VITE_API_URL` | Адрес API |
 
+**Netlify**
+
+В настройках сборки задайте `API_URL` с областью **Builds**: HTTPS-origin вашего API, без `/api/v1`, параметров и учётных данных. `VITE_API_URL=/api/v1` уже задан в `netlify.toml`.
+
+После сборки `scripts/write-netlify-redirects.mjs` создаёт `apps/web/dist/_redirects` с конкретным адресом прокси. Netlify не подставляет переменные вида `$API_URL` в `[[redirects]].to`; поэтому адрес подставляется во время сборки. Если `API_URL` отсутствует или неверен, сборка завершается с понятной ошибкой. Правило API обрабатывается до SPA fallback. Backend развёртывается отдельно на Railway.
+
 ---
 
 ## Команды
 
 ```bash
-pnpm dev            # оба приложения в watch-режиме
-pnpm build          # сборка
-pnpm test           # unit-тесты
-pnpm test:e2e       # Playwright
-pnpm lint           # ESLint
+pnpm dev            # frontend в watch-режиме
+pnpm build          # pricing-core, API и frontend
+pnpm test           # unit-тесты и доступные интеграционные тесты
+pnpm lint           # ESLint, границы модулей и Prettier
 pnpm typecheck      # tsc --noEmit
 ```
+
+Интеграционные тесты API требуют отдельной PostgreSQL БД с применёнными миграциями и переменной `TEST_DATABASE_URL` (см. `apps/api/test/setup-env.ts`). Тестовый harness очищает таблицы, поэтому производственную БД для них использовать нельзя. Без подключения интеграционные тесты пропускаются. Скрипт `test:e2e` пока не реализован; ручная проверка в браузере не заменяет этот будущий gate.
 
 ## Процесс разработки
 

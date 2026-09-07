@@ -31,244 +31,410 @@
 
 @layer base {
   :root {
-    /* Латиница и кириллица. Армянский добавлен запасным: даже отдельные
-       армянские слова внутри ru/en-текста получают правильные глифы. */
     --font-ui: 'Noto Sans', 'Noto Sans Armenian', system-ui, sans-serif;
     --font-display: 'Cormorant Garamond', 'Noto Serif Armenian', Georgia, serif;
-    --page-bg: theme('colors.ink.50');
-    --surface: #ffffff;
-    --hairline: theme('colors.ink.200');
+    --glass-shadow: 0 24px 64px -32px rgb(14 43 37 / 25%), inset 0 1px 0 rgb(255 255 255 / 85%);
+    --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
   }
-
-  /* Активная локаль армянская — ведущими становятся армянские гарнитуры.
-     Cormorant армянских глифов не содержит вовсе: без этой подмены заголовки
-     на hy молча уезжали бы на системный шрифт. */
   html[lang='hy'] {
     --font-ui: 'Noto Sans Armenian', 'Noto Sans', system-ui, sans-serif;
     --font-display: 'Noto Serif Armenian', 'Cormorant Garamond', Georgia, serif;
   }
-
   html {
     -webkit-text-size-adjust: 100%;
+    scroll-padding-top: 110px;
   }
-
   body {
-    background-color: var(--page-bg);
-    color: theme('colors.ink.800');
+    background: #edf1ee;
+    color: #10201c;
     font-family: var(--font-ui);
     font-size: 16px;
-    line-height: 1.55;
-    /* Горизонтального скролла страницы нет ни на одной ширине. */
-    overflow-x: hidden;
+    line-height: 1.6;
   }
-
-  /* Все числа — табличные: суммы не должны прыгать при пересчёте. */
+  h1,
+  h2,
+  h3 {
+    color: #0c231e;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+  :focus-visible {
+    outline: 2px solid #0e2b25;
+    outline-offset: 4px;
+  }
+  .on-dark :focus-visible {
+    outline-color: #e9eeeb;
+  }
+  .calculator-glass :focus-visible {
+    outline-color: #0e2b25;
+  }
+  ::selection {
+    color: #e9eeeb;
+    background: #0e2b25;
+  }
+  [id] {
+    scroll-margin-top: 110px;
+  }
   .tnum,
   input[type='number'],
   table {
     font-variant-numeric: tabular-nums;
   }
-
-  h1,
-  h2,
-  h3 {
-    color: theme('colors.ink.900');
-    font-weight: 600;
-    line-height: 1.2;
-  }
-
-  :focus-visible {
-    outline: 2px solid theme('colors.accent.500');
-    outline-offset: 2px;
-    border-radius: 2px;
-  }
-
-  /* Фокус на тёмной плоскости изумрудом не виден — там обводка шампанью. */
-  .on-dark :focus-visible {
-    outline-color: theme('colors.gold.500');
-  }
 }
 
 @layer components {
-  /* Цель касания не меньше 44px — основной сценарий мобильный. */
   .touch-target {
     min-height: 44px;
   }
-
   .field-label {
-    @apply mb-1 block text-sm font-medium text-ink-700;
+    @apply mb-2 block text-sm font-medium text-ink-700;
   }
-
-  /* Обводки фокуса тут нет намеренно: её задаёт общее правило `:focus-visible`
-     из @layer base. Прежний `focus:outline-none` из утилит перекрывал его
-     (утилиты идут после base) и ставил `outline: 2px solid transparent` —
-     у полей форм не оставалось ни одного видимого признака фокуса, кроме
-     смены цвета границы на 1 px. Подсказка-заполнитель взята на ступень
-     темнее: `ink-400` давал 2.66:1 на белом. */
   .field-control {
-    @apply touch-target w-full rounded-none border border-ink-300 bg-white px-3 py-2 text-ink-900
-      placeholder:text-ink-500 focus:border-accent-500 disabled:bg-ink-100 disabled:text-ink-500;
+    @apply touch-target w-full min-w-0 rounded-xl border border-ink-300 px-4 py-3 text-base text-ink-900 placeholder:text-ink-500 disabled:bg-ink-100 disabled:text-ink-500;
+    min-height: 50px;
+    background: rgb(255 255 255 / 85%);
+    box-shadow: inset 0 1px 2px rgb(14 43 37 / 3%);
+    transition:
+      border-color 180ms,
+      box-shadow 220ms,
+      background-color 180ms;
   }
-
+  .field-control:hover:not(:disabled) {
+    border-color: #6e8d82;
+    background: #fff;
+  }
+  .field-control:focus {
+    border-color: #0e2b25;
+    background: #fff;
+    box-shadow: 0 0 0 4px rgb(14 43 37 / 8%);
+  }
+  .field-control[aria-invalid='true'] {
+    border-color: #a33a32;
+  }
+  select.field-control {
+    cursor: pointer;
+    text-overflow: ellipsis;
+    padding-right: 2rem;
+  }
   .field-error {
-    @apply mt-1 text-sm text-danger-500;
+    @apply mt-2 text-sm text-danger-500;
   }
-
+  .surface,
+  .lift-card,
+  .step-card,
+  .claim-card,
+  .faq-item {
+    background: rgb(255 255 255 / 85%);
+    border: 1px solid rgb(14 43 37 / 10%);
+    border-radius: 22px;
+    box-shadow: 0 4px 20px -12px rgb(14 43 37 / 15%);
+    min-width: 0;
+  }
   .surface {
-    @apply border border-ink-200 bg-white;
+    box-shadow: var(--glass-shadow);
   }
-
-  /* Кнопка: заливка выезжает слева. Без свечения и без тени. */
   .btn-fill {
     position: relative;
-    overflow: hidden;
-    z-index: 0;
+    min-height: 48px;
+    transition:
+      transform 180ms var(--ease-spring),
+      box-shadow 200ms,
+      background-color 200ms;
   }
-
-  .btn-fill::before {
+  .btn-fill:not(:disabled):hover {
+    background-color: var(--btn-fill);
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px -10px rgb(14 43 37 / 35%);
+  }
+  .btn-fill:not(:disabled):active {
+    transform: scale(0.98);
+  }
+  .btn-fill:disabled {
+    opacity: 0.6;
+  }
+  .btn-fill svg {
+    transition: transform 200ms var(--ease-spring);
+  }
+  .btn-fill:hover svg {
+    transform: translateX(3px);
+  }
+  .display {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    line-height: 1.12;
+    overflow-wrap: anywhere;
+  }
+  html[lang='hy'] .display {
+    letter-spacing: 0;
+    line-height: 1.35;
+  }
+  .eyebrow {
+    @apply text-sm font-medium text-ink-500;
+  }
+  .eyebrow-light {
+    @apply text-sm font-medium text-ink-200;
+  }
+  .user-text {
+    overflow-wrap: anywhere;
+  }
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    background: rgb(237 241 238 / 90%);
+    border-bottom: 1px solid rgb(255 255 255 / 70%);
+    box-shadow: 0 4px 30px rgb(14 43 37 / 4%);
+  }
+  .site-header > div:first-child {
+    min-height: 84px;
+  }
+  .site-header nav a {
+    border-radius: 12px;
+    padding-inline: 14px;
+    transition: background-color 200ms;
+  }
+  .site-header nav a:hover,
+  .site-header nav a[aria-current='page'] {
+    background: rgb(14 43 37 / 6%);
+  }
+  .language-switcher {
+    padding: 3px;
+    gap: 2px;
+    border-radius: 14px;
+    background: rgb(14 43 37 / 5%);
+    border: 1px solid rgb(14 43 37 / 9%);
+  }
+  .language-switcher button {
+    transition:
+      background-color 220ms,
+      color 220ms,
+      box-shadow 220ms;
+  }
+  .language-switcher button[aria-pressed='true'] {
+    box-shadow: 0 2px 8px rgb(14 43 37 / 12%);
+  }
+  footer .language-switcher {
+    background: rgb(233 238 235 / 7%);
+    border-color: rgb(233 238 235 / 15%);
+  }
+  .hero {
+    position: relative;
+    isolation: isolate;
+    background: #0c231e;
+  }
+  .hero::before {
     content: '';
     position: absolute;
     inset: 0;
     z-index: -1;
-    background: var(--btn-fill, transparent);
-    transform: scaleX(0);
-    transform-origin: left center;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse at 75% 35%, rgb(169 192 183 / 20%), transparent 60%),
+      linear-gradient(120deg, #0c231e, #0e2b25);
   }
-
-  .motion .btn-fill::before {
-    transition: transform 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  .hero-eyebrow {
+    font-size: 0.875rem;
+    color: #dbe2de;
   }
-
-  .btn-fill:hover::before,
-  .btn-fill:focus-visible::before {
-    transform: scaleX(1);
+  .hero-title {
+    font-size: clamp(2.5rem, 4.4vw, 4rem);
+    max-width: 12ch;
   }
-
-  .btn-fill:disabled::before {
-    transform: scaleX(0);
+  html[lang='hy'] .hero-title {
+    font-size: clamp(1.9rem, 3.1vw, 2.8rem);
+    max-width: 16ch;
   }
-
-  /* Карточка пакета: очень лёгкий подъём и уплотнение границы на наведении. */
+  .hero-copy > p {
+    max-width: 39ch;
+  }
+  .hero-status {
+    background: rgb(233 238 235 / 6%);
+    border: 1px solid rgb(233 238 235 / 18%);
+    border-radius: 16px;
+  }
+  .calculator-glass {
+    background: #edf1ee;
+    border: 1px solid rgb(255 255 255 / 80%);
+    border-radius: 28px;
+    box-shadow:
+      0 28px 70px -20px rgb(0 0 0 / 30%),
+      inset 0 1px 0 #fff;
+  }
+  .calculator-form > div {
+    min-width: 0;
+  }
+  .calculator-form #areaSqm {
+    font-size: 1.5rem;
+    padding-block: 10px;
+  }
+  .calculator-form > button {
+    min-height: 54px;
+    margin-top: 6px;
+    font-size: 1rem;
+  }
+  .icon-tile {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+    background: #e7eeea;
+    color: #0e2b25;
+  }
+  .claim-card {
+    border-color: transparent;
+    background: #f3f6f4;
+    box-shadow: none;
+  }
+  .step-card {
+    border-color: rgb(255 255 255 / 90%);
+  }
   .lift-card {
-    @apply border border-ink-200 bg-white;
-  }
-
-  .motion .lift-card {
     transition:
-      transform 180ms ease-out,
-      border-color 180ms ease-out,
-      box-shadow 180ms ease-out;
+      transform 250ms var(--ease-spring),
+      box-shadow 250ms,
+      border-color 250ms;
   }
-
   .lift-card:hover {
-    @apply border-accent-300 shadow-lift;
-    transform: translateY(-2px);
+    transform: translateY(-4px);
+    border-color: #a9c0b7;
+    box-shadow: var(--glass-shadow);
   }
-
-  /* Маркетинговый заголовок: Cormorant, крупно, умеренный трекинг.
-
-     `overflow-wrap: anywhere` — по той же причине, что и в `.user-text`:
-     только он уменьшает min-content заголовка. Армянские слова длиннее
-     русских, и на 320 px «Նախնական գնահատում» кеглем 30 px задавало колонке
-     ширину 309 px — страница уезжала вправо, а `overflow-x: hidden` на body
-     это прятало. Перенос внутри слова срабатывает лишь тогда, когда слово
-     иначе не помещается вовсе. */
-  .display {
-    font-family: var(--font-display);
-    font-weight: 500;
-    letter-spacing: 0.01em;
-    line-height: 1.08;
-    overflow-wrap: anywhere;
+  .designer-card {
+    border-radius: 22px;
+    min-width: 0;
   }
-
-  /* Надзаголовок секции: капслок, трекинг как в логотипе. */
-  .eyebrow {
-    @apply text-xs font-medium uppercase tracking-brand text-ink-500;
+  .faq-item {
+    overflow: hidden;
   }
-
-  .eyebrow-gold {
-    @apply text-xs font-medium uppercase tracking-brand text-gold-500;
+  .faq-item summary::-webkit-details-marker {
+    display: none;
   }
-
-  /* Текст, пришедший от пользователя (комментарии, адреса, имена файлов),
-     может не содержать пробелов вовсе. Без принудительного переноса такая
-     строка задаёт min-content колонки и растягивает страницу шире экрана:
-     на 320–360 px шапка и футер обрезаются, а правый край контента
-     становится недостижимым — `overflow-x: hidden` на body его прячет.
-     `anywhere` (а не `break-word`) выбран намеренно: только он уменьшает
-     min-content, то есть реально позволяет flex-элементу сжаться. */
-  .user-text {
-    overflow-wrap: anywhere;
+  .faq-item summary {
+    transition: background-color 180ms;
+  }
+  .faq-item summary:hover {
+    background: #edf1ee;
+  }
+  .faq-item[open] {
+    border-color: #a9c0b7;
+  }
+  .auth-page {
+    margin-block: clamp(1rem, 4vw, 3rem);
+    width: calc(100% - 2rem);
+    padding: clamp(1.25rem, 4vw, 2.5rem);
+    background: rgb(255 255 255 / 90%);
+    border: 1px solid #fff;
+    border-radius: 28px;
+    box-shadow: var(--glass-shadow);
+  }
+  .result-panel {
+    border-top: 3px solid #0e2b25;
   }
 }
 
-/* -------------------------------------------------------------------------- */
-/* Движение                                                                    */
-/*                                                                             */
-/* Правило одно: контент виден всегда. Ни одно из состояний ниже не действует, */
-/* пока скрипт не поставил на <html> класс `motion` — он ставится только если  */
-/* пользователь не просил уменьшить движение (см. src/lib/motion.ts). Если     */
-/* скрипты не выполнились, страница остаётся полностью читаемой.               */
-/* -------------------------------------------------------------------------- */
+@supports (backdrop-filter: blur(20px)) or (-webkit-backdrop-filter: blur(20px)) {
+  .site-header {
+    background: rgb(237 241 238 / 82%);
+    -webkit-backdrop-filter: blur(24px) saturate(140%);
+    backdrop-filter: blur(24px) saturate(140%);
+  }
+  .calculator-glass {
+    background: rgb(237 241 238 / 91%);
+    -webkit-backdrop-filter: blur(32px) saturate(130%);
+    backdrop-filter: blur(32px) saturate(130%);
+  }
+  .surface {
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+  }
+}
 
-@layer utilities {
-  /* Появление блока при попадании в область просмотра. */
-  .motion [data-reveal] {
+/* Progressive native pickers: keyboard, touch and screen-reader behavior is
+   owned by the browser; Safari/Firefox retain their native select sheet. */
+@supports (appearance: base-select) {
+  select.field-control,
+  select.field-control::picker(select) {
+    appearance: base-select;
+  }
+  select.field-control {
+    align-items: center;
+  }
+  select.field-control::picker-icon {
+    color: #5f706a;
+    transition: rotate 200ms;
+  }
+  select.field-control:open::picker-icon {
+    rotate: 180deg;
+  }
+  select.field-control::picker(select) {
+    border: 1px solid #c2cdc7;
+    border-radius: 16px;
+    padding: 6px;
+    background: #f3f6f4;
+    box-shadow: 0 16px 40px -12px rgb(14 43 37 / 24%);
     opacity: 0;
-    transform: translateY(10px);
-  }
-
-  .motion [data-reveal].is-visible {
-    opacity: 1;
-    transform: none;
+    transform: translateY(-4px);
     transition:
-      opacity 420ms cubic-bezier(0.22, 0.61, 0.36, 1),
-      transform 420ms cubic-bezier(0.22, 0.61, 0.36, 1);
-    transition-delay: var(--reveal-delay, 0ms);
+      opacity 180ms,
+      transform 180ms,
+      display 180ms allow-discrete,
+      overlay 180ms allow-discrete;
   }
-
-  /* Размерная линия чертежа: прочерчивается от левой засечки к правой. */
-  .motion .dimension-line {
-    stroke-dasharray: var(--dim-length, 400);
-    stroke-dashoffset: var(--dim-length, 400);
+  select.field-control::picker(select):popover-open {
+    opacity: 1;
+    transform: translateY(0);
   }
-
-  .motion .dimension-line.is-visible {
-    stroke-dashoffset: 0;
-    transition: stroke-dashoffset 700ms cubic-bezier(0.22, 0.61, 0.36, 1);
-    transition-delay: var(--reveal-delay, 0ms);
-  }
-
-  /* Сборка арки: половины кладки выходят снизу, замковый камень опускается
-     сверху и встаёт в разрыв. Один раз, на загрузке героя. */
-  .motion .arch-leg {
-    animation: arch-leg-rise 620ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
-  }
-
-  .motion .arch-leg-right {
-    animation-delay: 90ms;
-  }
-
-  .motion .arch-key {
-    animation: arch-key-drop 520ms cubic-bezier(0.34, 1.2, 0.64, 1) both;
-    animation-delay: 520ms;
-  }
-
-  @keyframes arch-leg-rise {
-    from {
+  @starting-style {
+    select.field-control::picker(select):popover-open {
       opacity: 0;
-      transform: translateY(26px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
+      transform: translateY(-4px);
     }
   }
+  select.field-control option {
+    padding: 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    white-space: normal;
+  }
+  select.field-control option:checked {
+    background: #e7eeea;
+    color: #0e2b25;
+    font-weight: 500;
+  }
+  select.field-control option:hover,
+  select.field-control option:focus {
+    background: #cfddd7;
+  }
+}
 
-  @keyframes arch-key-drop {
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+  .route-enter {
+    animation: enter 300ms var(--ease-spring);
+  }
+  .mobile-menu {
+    animation: enter 200ms var(--ease-spring);
+  }
+  .field-error,
+  [id$='-hint'] {
+    animation: enter 200ms var(--ease-spring);
+  }
+  .faq-item[open] > p {
+    animation: enter 230ms var(--ease-spring);
+  }
+  [data-reveal].is-visible {
+    animation: enter 450ms var(--ease-spring) both;
+    animation-delay: var(--reveal-delay, 0ms);
+  }
+  @keyframes enter {
     from {
-      opacity: 0;
-      transform: translateY(-22px);
+      opacity: 0.35;
+      transform: translateY(6px);
     }
     to {
       opacity: 1;
@@ -276,10 +442,25 @@
     }
   }
 }
-
-/* Пользователь попросил уменьшить движение — движения нет вовсе.
-   Не «медленнее», а выключено: класс `motion` при этом не ставится,
-   но правило ниже страхует и на случай смены настройки на лету. */
+@media (max-width: 639px) {
+  .site-header > div:first-child {
+    min-height: 72px;
+  }
+  .hero-title {
+    max-width: 22ch;
+    font-size: 2.35rem;
+  }
+  html[lang='hy'] .hero-title {
+    max-width: 23ch;
+    font-size: 1.9rem;
+  }
+  .hero-copy > p {
+    font-size: 1rem;
+  }
+  .calculator-glass {
+    border-radius: 24px;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -288,13 +469,18 @@
     transition: none !important;
     scroll-behavior: auto !important;
   }
-
-  .motion [data-reveal],
-  .motion .dimension-line,
-  .motion .arch-leg,
-  .motion .arch-key {
-    opacity: 1 !important;
-    transform: none !important;
-    stroke-dashoffset: 0 !important;
+}
+@media (prefers-reduced-transparency: reduce) {
+  .site-header,
+  .calculator-glass {
+    background: #edf1ee;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .surface,
+  .auth-page {
+    background: #fff;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 }

@@ -20,13 +20,13 @@ import type { CalculatorValues } from '@/lib/validation';
  */
 export function EstimatePage(): JSX.Element {
   const { t, i18n } = useTranslation();
-  const { rates, validityDays, isLoading } = useRates();
+  const { rates, validityDays, isLoading, isFallback } = useRates();
   const stored = useMemo(() => readEstimate(), []);
 
   // Сумму нельзя показать по ставкам «по умолчанию», а через мгновение
   // заменить её другой: изменившаяся на глазах цена дороже секунды ожидания.
   // Если ставки не пришли вовсе (сеть) — считаем по умолчанию, как задумано.
-  if (isLoading) {
+  if (isLoading && stored?.input.finishPackage !== 'DESIGNER') {
     return (
       <Page width="prose">
         <PageTitle>{t('result.title')}</PageTitle>
@@ -79,9 +79,14 @@ export function EstimatePage(): JSX.Element {
           <ManualReviewPanel />
         ) : (
           <>
+            {isFallback ? (
+              <Alert tone="warning" className="mt-5">
+                {t('result.fallbackNote')}
+              </Alert>
+            ) : null}
             <AutomaticPanel result={result} validUntil={validUntil} locale={i18n.language} />
             {/* Состав пакета показываем только там, где он и применяется. */}
-            <PackageContents />
+            <PackageContents scope={stored.input.workScope} />
           </>
         )}
       </div>
@@ -106,10 +111,7 @@ function AutomaticPanel({
   const { t } = useTranslation();
 
   return (
-    <section
-      className="mt-6 border border-ink-200 border-l-[3px] border-l-gold-500 bg-white p-5 sm:p-7"
-      aria-live="polite"
-    >
+    <section className="surface result-panel mt-6 p-5 sm:p-7" aria-live="polite">
       <p className="eyebrow">{t('result.rangeLabel')}</p>
       {/* Пара «подпись + сумма» переносится внутри себя (`flex-wrap`): сама
           сумма не рвётся никогда (`Money`), но связка «մինչև 104 868 960 ֏»
@@ -147,13 +149,8 @@ function ManualReviewPanel(): JSX.Element {
   const { t } = useTranslation();
 
   return (
-    <section
-      className="mt-6 border border-amber-100 border-l-[3px] border-l-amber-500 bg-amber-50 p-5 sm:p-7"
-      aria-live="polite"
-    >
-      <p className="text-xs font-medium uppercase tracking-brand text-amber-700">
-        {t('result.designer.badge')}
-      </p>
+    <section className="surface result-panel mt-6 p-5 sm:p-7" aria-live="polite">
+      <p className="eyebrow">{t('result.designer.badge')}</p>
       <h2 className="display mt-3 text-2xl sm:text-3xl">{t('result.designer.title')}</h2>
       <p className="mt-2 max-w-prose text-sm text-ink-700">{t('result.designer.text')}</p>
       <p className="mt-2 max-w-prose text-sm text-ink-600">{t('result.designer.noPriceNote')}</p>
@@ -173,7 +170,7 @@ function RequestCta(): JSX.Element {
   return <ButtonLink to={user ? '/requests/new' : '/register'}>{t('result.toRequest')}</ButtonLink>;
 }
 
-function PackageContents(): JSX.Element {
+function PackageContents({ scope }: { scope: CalculatorValues['workScope'] }): JSX.Element {
   const { t } = useTranslation();
   const items = t('landing.packageItems', { returnObjects: true }) as string[];
 
@@ -182,13 +179,17 @@ function PackageContents(): JSX.Element {
       <h2 className="display text-2xl" id="result-package">
         {t('result.includedTitle')}
       </h2>
-      <ul className="mt-4 divide-y divide-ink-200 border-y border-ink-200">
-        {items.map((item) => (
-          <li key={item} className="py-2 text-sm text-ink-700">
-            {item}
-          </li>
-        ))}
-      </ul>
+      {scope !== 'TURNKEY' ? (
+        <p className="mt-4 text-ink-700">{t(`landing.packages.${scope}`)}</p>
+      ) : (
+        <ul className="mt-4 divide-y divide-ink-200 border-y border-ink-200">
+          {items.map((item) => (
+            <li key={item} className="py-2 text-sm text-ink-700">
+              {item}
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

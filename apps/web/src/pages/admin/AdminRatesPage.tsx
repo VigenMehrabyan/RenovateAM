@@ -136,6 +136,13 @@ function RatesEditor({ rates }: { rates: RateSet }): JSX.Element {
       parsed[field.key] = value;
     }
 
+    if (
+      parsed.range_min !== undefined &&
+      parsed.range_max !== undefined &&
+      parsed.range_min > parsed.range_max
+    ) {
+      nextFieldErrors.range_min = t('admin.rates.rangeOrderRequired');
+    }
     setFieldErrors(nextFieldErrors);
     if (Object.keys(nextFieldErrors).length > 0) return;
 

@@ -5,7 +5,7 @@
  * при включённом `prefers-reduced-motion`: блок сразу считается видимым,
  * счётчик сразу показывает конечное значение.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { prefersReducedMotion } from './motion';
 
 const VISIBLE_CLASS = 'is-visible';
@@ -20,79 +20,50 @@ function markVisible(node: Element): void {
  * одноразовый, при обратном скролле блок не мигает.
  */
 export function useRevealRef<T extends Element>(): (node: T | null) => void {
-  const observer = useRef<IntersectionObserver | null>(null);
-
+  const [node, setNode] = useState<T | null>(null);
   useEffect(() => {
-    return () => {
-      observer.current?.disconnect();
-      observer.current = null;
-    };
-  }, []);
-
-  return useCallback((node: T | null) => {
-    observer.current?.disconnect();
-    observer.current = null;
     if (!node) return;
-
     if (typeof IntersectionObserver === 'undefined' || prefersReducedMotion()) {
       markVisible(node);
       return;
     }
-
-    const instance = new IntersectionObserver(
+    const observer = new IntersectionObserver(
       (entries) => {
-        for (const entry of entries) {
-          if (!entry.isIntersecting) continue;
-          markVisible(entry.target);
-          instance.unobserve(entry.target);
+        if (entries.some((entry) => entry.isIntersecting)) {
+          markVisible(node);
+          observer.disconnect();
         }
       },
-      { rootMargin: '0px 0px -10% 0px', threshold: 0.05 },
+      { threshold: 0.05 },
     );
-    instance.observe(node);
-    observer.current = instance;
-  }, []);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [node]);
+  return useCallback((element: T | null) => setNode(element), []);
 }
 
-/** Отслеживает первое появление элемента: `true` — уже показывался. */
 export function useSeen<T extends Element>(): [(node: T | null) => void, boolean] {
+  const [node, setNode] = useState<T | null>(null);
   const [seen, setSeen] = useState(false);
-  const observer = useRef<IntersectionObserver | null>(null);
-
   useEffect(() => {
-    return () => {
-      observer.current?.disconnect();
-      observer.current = null;
-    };
-  }, []);
-
-  const ref = useCallback(
-    (node: T | null) => {
-      observer.current?.disconnect();
-      observer.current = null;
-      if (!node) return;
-
-      if (typeof IntersectionObserver === 'undefined') {
-        setSeen(true);
-        return;
-      }
-
-      const instance = new IntersectionObserver(
-        (entries) => {
-          if (entries.some((entry) => entry.isIntersecting)) {
-            setSeen(true);
-            instance.disconnect();
-          }
-        },
-        { threshold: 0.2 },
-      );
-      instance.observe(node);
-      observer.current = instance;
-    },
-    [setSeen],
-  );
-
-  return [ref, seen];
+    if (!node || seen) return;
+    if (typeof IntersectionObserver === 'undefined' || prefersReducedMotion()) {
+      setSeen(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setSeen(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.2 },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [node, seen]);
+  return [useCallback((element: T | null) => setNode(element), []), seen];
 }
 
 const COUNT_UP_DURATION_MS = 700;

@@ -141,20 +141,25 @@ const positiveRate = z
   .number({ invalid_type_error: 'admin.rates.positiveRequired' })
   .refine((value) => Number.isFinite(value) && value > 0, 'admin.rates.positiveRequired');
 
-export const ratesSchema = z.object({
-  base_rate_amd: positiveRate,
-  scope_turnkey: positiveRate,
-  scope_finishing: positiveRate,
-  scope_rough: positiveRate,
-  object_apartment: positiveRate,
-  object_house: positiveRate,
-  condition_new: positiveRate,
-  condition_secondary: positiveRate,
-  ceiling_up_to_3m: positiveRate,
-  ceiling_from_3m: positiveRate,
-  range_min: positiveRate,
-  range_max: positiveRate,
-  note: z.string().trim().max(500).optional(),
-});
+export const ratesSchema = z
+  .object({
+    base_rate_amd: positiveRate,
+    scope_turnkey: positiveRate,
+    scope_finishing: positiveRate,
+    scope_rough: positiveRate,
+    object_apartment: positiveRate,
+    object_house: positiveRate,
+    condition_new: positiveRate,
+    condition_secondary: positiveRate,
+    ceiling_up_to_3m: positiveRate,
+    ceiling_from_3m: positiveRate,
+    range_min: positiveRate,
+    range_max: positiveRate,
+    note: z.string().trim().max(500).optional(),
+  })
+  .refine((values) => values.range_min <= values.range_max, {
+    message: 'admin.rates.rangeOrderRequired',
+    path: ['range_min'],
+  });
 
 export type RatesValues = z.infer<typeof ratesSchema>;

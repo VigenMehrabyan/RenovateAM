@@ -81,7 +81,7 @@ describe('контраст палитры', () => {
     expect(tone('accent', '500')).toBe('#0e2b25');
     expect(tone('gold', '500')).toBe('#c9b183');
     expect(tone('ink', '100')).toBe('#edf1ee');
-    expect(tone('ink', '900')).toBe('#0a1f1a');
+    expect(tone('ink', '900')).toBe('#0c231e');
   });
 });
 

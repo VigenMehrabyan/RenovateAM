@@ -30,7 +30,7 @@ export interface PricingPublicService {
   ): Promise<QuickEstimateView>;
 
   /** Читает сохранённый расчёт (requests кладёт его в заявку). */
-  getQuickEstimate(id: string): Promise<QuickEstimateView | null>;
+  getQuickEstimate(id: string, forUserId?: string): Promise<QuickEstimateView | null>;
 
   /** Привязывает анонимные расчёты к пользователю после регистрации. */
   attachEstimatesToUser(estimateIds: string[], userId: string): Promise<void>;

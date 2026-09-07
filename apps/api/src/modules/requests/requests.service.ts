@@ -48,7 +48,7 @@ export class RequestsService implements RequestsPublicService {
     let quickEstimateId: string | null = null;
 
     if (dto.quickEstimateId) {
-      const estimate = await this.pricing.getQuickEstimate(dto.quickEstimateId);
+      const estimate = await this.pricing.getQuickEstimate(dto.quickEstimateId, userId);
       if (!estimate) {
         throw new AppException(404, ErrorCode.NOT_FOUND, 'Quick estimate not found');
       }

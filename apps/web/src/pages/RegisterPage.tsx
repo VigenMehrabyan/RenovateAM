@@ -65,7 +65,7 @@ export function RegisterPage(): JSX.Element {
   };
 
   return (
-    <Page width="form">
+    <Page width="form" className="auth-page">
       <PageTitle>{t('auth.register.title')}</PageTitle>
       <p className="mt-2 max-w-prose text-sm text-ink-600">{t('auth.register.lead')}</p>
       {stored ? (

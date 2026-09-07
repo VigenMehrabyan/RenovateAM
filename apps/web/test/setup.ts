@@ -6,6 +6,8 @@ import i18n from '@/i18n';
 // Тесты пишутся против локали по умолчанию (ru), а не против языка окружения.
 beforeEach(async () => {
   await i18n.changeLanguage('ru');
+  vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
+  Element.prototype.scrollIntoView = vi.fn();
 });
 
 // jsdom не реализует matchMedia — его читает Tailwind-независимый код и RTL.

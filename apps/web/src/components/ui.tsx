@@ -1,6 +1,6 @@
 /**
  * Небольшой набор примитивов. Оформление задано токенами из tailwind.config.ts:
- * изумрудный акцент фирменного стиля, шампань — только акцентом, семантика
+ * изумрудный акцент фирменного стиля, шампань — только в логотипе, семантика
  * статусов вынесена отдельными цветами и с акцентом не смешивается.
  */
 import { forwardRef } from 'react';
@@ -20,9 +20,9 @@ import { formatAmd } from '@/lib/format';
 /**
  * Варианты кнопок.
  *  · `primary`  — на светлом: изумруд со светлым текстом;
- *  · `onDark`   — на тёмной плоскости: шампань с тёмным текстом;
+ *  · `onDark`   — на тёмной плоскости: светлая кнопка с изумрудным текстом;
  *  · остальные — вспомогательные.
- * Заливка при наведении выезжает слева (`.btn-fill`), свечения нет.
+ * При наведении меняется заливка, при нажатии — масштаб (`.btn-fill`).
  */
 type ButtonVariant = 'primary' | 'onDark' | 'secondary' | 'ghost' | 'danger';
 
@@ -31,12 +31,12 @@ type ButtonVariant = 'primary' | 'onDark' | 'secondary' | 'ghost' | 'danger';
 // карточки уводит страницу за 320 px. Кнопкам, которым перенос вреден
 // (шапка), `whitespace-nowrap` ставится точечно.
 const BUTTON_BASE =
-  'btn-fill touch-target inline-flex items-center justify-center gap-2 rounded-none px-5 py-2 ' +
+  'btn-fill touch-target inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2 ' +
   'text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60';
 
 const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
   primary: 'bg-accent-500 text-ink-50 [--btn-fill:#0a1f1a]',
-  onDark: 'bg-gold-500 text-ink-900 [--btn-fill:#e3d2b2]',
+  onDark: 'bg-ink-100 text-accent-500 [--btn-fill:#ffffff]',
   secondary: 'border border-ink-300 bg-white text-ink-800 [--btn-fill:#edf1ee]',
   ghost: 'text-accent-500 underline underline-offset-4 [--btn-fill:#edf1ee]',
   danger: 'border border-danger-500 bg-white text-danger-500 [--btn-fill:#f7eceb]',
@@ -204,7 +204,7 @@ export function Alert({
 }): JSX.Element {
   return (
     <div
-      className={`user-text border border-ink-200 border-l-[3px] px-4 py-3 text-sm ${ALERT_TONES[tone]} ${className}`}
+      className={`user-text rounded-xl border border-ink-200 border-l-[3px] px-4 py-3 text-sm ${ALERT_TONES[tone]} ${className}`}
       role={tone === 'danger' ? 'alert' : 'status'}
     >
       {title ? <p className="font-semibold">{title}</p> : null}
@@ -233,7 +233,7 @@ export function StatusBadge({
 }): JSX.Element {
   return (
     <span
-      className={`inline-flex items-center whitespace-nowrap rounded-none border px-2 py-1 text-xs font-medium ${STATUS_TONES[status]}`}
+      className={`inline-flex items-center whitespace-nowrap rounded-full border px-3 py-1 text-sm font-medium ${STATUS_TONES[status]}`}
     >
       {label}
     </span>

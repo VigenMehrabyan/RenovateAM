@@ -103,7 +103,18 @@ export type EstimateApiResponse =
     };
 
 export const pricingApi = {
-  rates: () => apiRequest<RatesResponse>('/pricing/rates'),
+  rates: async () => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    try {
+      return await apiRequest<RatesResponse>('/pricing/rates', {
+        signal: controller.signal,
+        skipRefresh: true,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+  },
   /** Сохраняет расчёт для аналитики; цену UI берёт из локального движка. */
   estimate: (payload: EstimatePayload) =>
     apiRequest<EstimateApiResponse>('/pricing/estimate', { method: 'POST', body: payload }),

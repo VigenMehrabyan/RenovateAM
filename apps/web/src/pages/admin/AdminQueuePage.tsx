@@ -46,6 +46,8 @@ export function AdminQueuePage(): JSX.Element {
     page: 1,
   });
 
+  const [phoneDraft, setPhoneDraft] = useState('');
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin', 'requests', filters],
     queryFn: () =>
@@ -67,7 +69,7 @@ export function AdminQueuePage(): JSX.Element {
         className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
         onSubmit={(event) => {
           event.preventDefault();
-          setFilters((current) => ({ ...current, page: 1 }));
+          setFilters((current) => ({ ...current, phone: phoneDraft.trim(), page: 1 }));
         }}
       >
         <Field id="filter-status" label={t('admin.queue.filterStatus')}>
@@ -95,10 +97,8 @@ export function AdminQueuePage(): JSX.Element {
           <TextInput
             id="filter-phone"
             type="tel"
-            value={filters.phone}
-            onChange={(event) =>
-              setFilters((current) => ({ ...current, phone: event.target.value }))
-            }
+            value={phoneDraft}
+            onChange={(event) => setPhoneDraft(event.target.value)}
           />
         </Field>
 
@@ -124,7 +124,10 @@ export function AdminQueuePage(): JSX.Element {
           <Button
             type="button"
             variant="secondary"
-            onClick={() => setFilters({ status: '', phone: '', sort: 'createdAt:desc', page: 1 })}
+            onClick={() => {
+              setPhoneDraft('');
+              setFilters({ status: '', phone: '', sort: 'createdAt:desc', page: 1 });
+            }}
           >
             {t('admin.queue.reset')}
           </Button>
