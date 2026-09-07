@@ -17,14 +17,11 @@ export function LanguageSwitcher({
   const { t, i18n } = useTranslation();
   const current = isLocale(i18n.language) ? i18n.language : 'ru';
 
-  const activeClass =
-    tone === 'dark'
-      ? 'border-gold-500 bg-gold-500 text-ink-900'
-      : 'border-accent-500 bg-accent-500 text-ink-50';
+  const activeClass = tone === 'dark' ? 'bg-ink-100 text-ink-900' : 'bg-accent-500 text-ink-50';
   const idleClass =
     tone === 'dark'
-      ? 'border-ink-700 bg-transparent text-ink-200 hover:border-gold-500 hover:text-gold-500'
-      : 'border-ink-300 bg-white text-ink-600 hover:border-accent-400 hover:text-accent-500';
+      ? 'bg-transparent text-ink-100 hover:bg-white/10'
+      : 'bg-transparent text-ink-600 hover:text-accent-500';
 
   const change = (locale: Locale): void => {
     void i18n.changeLanguage(locale);
@@ -33,7 +30,11 @@ export function LanguageSwitcher({
   };
 
   return (
-    <div className={`flex items-center ${className}`} role="group" aria-label={t('lang.label')}>
+    <div
+      className={`language-switcher flex items-center ${className}`}
+      role="group"
+      aria-label={t('lang.label')}
+    >
       {LOCALES.map((locale) => {
         const active = locale === current;
         return (
@@ -43,9 +44,9 @@ export function LanguageSwitcher({
             lang={locale}
             aria-pressed={active}
             onClick={() => change(locale)}
-            className={`touch-target min-w-[44px] rounded-none border px-2 text-sm ${
+            className={`touch-target min-w-[44px] rounded-lg px-2 text-sm ${
               active ? activeClass : idleClass
-            } -ml-px first:ml-0`}
+            }`}
           >
             {locale.toUpperCase()}
           </button>

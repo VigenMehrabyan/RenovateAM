@@ -4,7 +4,7 @@
 
 [build]
   base = "."
-  command = "pnpm install --frozen-lockfile && pnpm --filter @renovateam/web build"
+  command = "pnpm install --frozen-lockfile && pnpm --filter @renovateam/web build && node scripts/write-netlify-redirects.mjs"
   publish = "apps/web/dist"
 
 [build.environment]
@@ -13,13 +13,9 @@
   # Фронт обращается к API по относительному пути — его проксирует правило ниже.
   VITE_API_URL = "/api/v1"
 
-# Прокси на backend. API_URL задаётся переменной окружения сайта
-# (Site settings → Environment variables), например https://api.renovateam.app
-[[redirects]]
-  from = "/api/*"
-  to = "$API_URL/api/:splat"
-  status = 200
-  force = true
+# API proxy is generated as apps/web/dist/_redirects during the build.
+# API_URL must be the HTTPS origin of the backend and have Builds scope.
+# _redirects is evaluated before this SPA fallback.
 
 # SPA: любой неизвестный путь отдаёт index.html, маршрутизацию делает react-router.
 [[redirects]]

@@ -31,18 +31,30 @@ export function formatCoefficient(value: number): string {
   return value.toFixed(2);
 }
 
-/**
- * Цепочка тегов для `Intl`.
- *
- * Часть движков (в том числе сборки Chromium с урезанным ICU) не содержит
- * данных CLDR для `hy` и молча откатывается на `en-US`: на армянском
- * интерфейсе даты выходили американскими («Sep 22, 2026»). Явная цепочка
- * возвращает откату смысл: сначала армянский, а если его нет — русский,
- * язык по умолчанию продукта, а не английский.
- */
+/** Armenian date labels must stay Armenian even in browsers without hy ICU data. */
+const ARMENIAN_MONTHS = [
+  'հունվարի',
+  'փետրվարի',
+  'մարտի',
+  'ապրիլի',
+  'մայիսի',
+  'հունիսի',
+  'հուլիսի',
+  'օգոստոսի',
+  'սեպտեմբերի',
+  'հոկտեմբերի',
+  'նոյեմբերի',
+  'դեկտեմբերի',
+];
+
+function armenianDate(date: Date): string {
+  return `${date.getDate()} ${ARMENIAN_MONTHS[date.getMonth()]} ${date.getFullYear()} թ.`;
+}
+
+/** Locale tags for Intl; Armenian labels are formatted explicitly below. */
 export function dateLocales(locale: string): string[] {
   const short = locale.slice(0, 2).toLowerCase();
-  if (short === 'hy') return ['hy-AM', 'hy', 'ru'];
+  if (short === 'hy') return ['hy-AM', 'hy'];
   return [locale];
 }
 
@@ -61,6 +73,7 @@ function toDate(value: string | Date | null | undefined): Date | null {
 export function formatDate(value: string | Date | null | undefined, locale: string): string {
   const date = toDate(value);
   if (!date) return '—';
+  if (locale.slice(0, 2).toLowerCase() === 'hy') return armenianDate(date);
   return new Intl.DateTimeFormat(dateLocales(locale), { dateStyle: 'medium' }).format(date);
 }
 
@@ -68,6 +81,9 @@ export function formatDate(value: string | Date | null | undefined, locale: stri
 export function formatDateTime(value: string | Date | null | undefined, locale: string): string {
   const date = toDate(value);
   if (!date) return '—';
+  if (locale.slice(0, 2).toLowerCase() === 'hy') {
+    return `${armenianDate(date)}, ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  }
   return new Intl.DateTimeFormat(dateLocales(locale), {
     dateStyle: 'medium',
     timeStyle: 'short',

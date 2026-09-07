@@ -11,7 +11,7 @@ const NAV_LINK =
   'touch-target inline-flex items-center whitespace-nowrap px-2 text-sm text-ink-600 ' +
   'hover:text-accent-500 aria-[current=page]:text-accent-500 aria-[current=page]:font-medium';
 
-const FOOTER_LINK = 'inline-flex py-1 text-sm text-ink-200/85 hover:text-gold-500';
+const FOOTER_LINK = 'inline-flex py-1 text-sm text-ink-200/85 hover:text-white';
 
 export function Layout(): JSX.Element {
   const { t } = useTranslation();
@@ -20,6 +20,13 @@ export function Layout(): JSX.Element {
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    setMenuOpen(false);
+    const target = location.hash ? document.getElementById(location.hash.slice(1)) : null;
+    if (target) target.scrollIntoView({ block: 'start' });
+    else window.scrollTo({ top: 0, behavior: 'instant' });
+  }, [location.pathname, location.hash]);
 
   /**
    * Escape закрывает раскрытое меню и возвращает фокус на кнопку: иначе
@@ -74,7 +81,7 @@ export function Layout(): JSX.Element {
         {t('common.skipToContent')}
       </a>
 
-      <header className="border-b border-ink-200 bg-white">
+      <header className="site-header">
         <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3">
           {/* `shrink-0`: пропорции логотипа менять нельзя (brand/README.md).
               Без этого во flex-строке на 768–960 px он ужимался по ширине при
@@ -110,7 +117,7 @@ export function Layout(): JSX.Element {
             <button
               ref={menuButtonRef}
               type="button"
-              className="touch-target min-w-[44px] shrink-0 whitespace-nowrap rounded-none border border-ink-300 px-3 text-sm lg:hidden"
+              className="touch-target min-w-[44px] shrink-0 whitespace-nowrap rounded-xl border border-ink-300 px-3 text-sm lg:hidden"
               aria-expanded={menuOpen}
               aria-controls="mobile-menu"
               onClick={() => setMenuOpen((open) => !open)}
@@ -121,7 +128,7 @@ export function Layout(): JSX.Element {
         </div>
 
         {menuOpen ? (
-          <div className="border-t border-ink-200 px-4 py-3 lg:hidden" id="mobile-menu">
+          <div className="mobile-menu border-t border-ink-200 px-4 py-3 lg:hidden" id="mobile-menu">
             <nav className="flex flex-col gap-1" aria-label={t('nav.menu')}>
               {links}
               {user ? (
@@ -141,9 +148,11 @@ export function Layout(): JSX.Element {
 
       {/* Ширину и поля задаёт сам экран: лендинг раскладывает плоскости
           на всю ширину, прикладные экраны — через <Page>. */}
-      <main id="main" className="flex-1">
+      <main id="main" tabIndex={-1} className="flex-1">
         <ErrorBoundary resetKey={location.pathname}>
-          <Outlet />
+          <div className="route-enter" key={location.pathname}>
+            <Outlet />
+          </div>
         </ErrorBoundary>
       </main>
 
@@ -166,7 +175,7 @@ function Footer(): JSX.Element {
           </div>
 
           <nav aria-labelledby="footer-nav">
-            <h2 className="eyebrow-gold" id="footer-nav">
+            <h2 className="eyebrow-light" id="footer-nav">
               {t('footer.navTitle')}
             </h2>
             <ul className="mt-3">
@@ -199,7 +208,7 @@ function Footer(): JSX.Element {
           </nav>
 
           <nav aria-labelledby="footer-sections">
-            <h2 className="eyebrow-gold" id="footer-sections">
+            <h2 className="eyebrow-light" id="footer-sections">
               {t('footer.sectionsTitle')}
             </h2>
             <ul className="mt-3">
@@ -227,7 +236,7 @@ function Footer(): JSX.Element {
           </nav>
 
           <div>
-            <h2 className="eyebrow-gold">{t('lang.label')}</h2>
+            <h2 className="eyebrow-light">{t('lang.label')}</h2>
             <LanguageSwitcher className="mt-3" tone="dark" />
           </div>
         </div>

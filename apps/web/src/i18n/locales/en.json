@@ -51,8 +51,8 @@
         "text": "No sales manager, no waiting for a callback: six fields and the result on screen."
       },
       {
-        "title": "Computed in the browser",
-        "text": "The same engine runs here and on the server. The network is not in the way of the number."
+        "title": "Your estimate, instantly",
+        "text": "Enter your property details and see a range to help plan your budget."
       },
       {
         "title": "Quote in two days",
@@ -94,7 +94,7 @@
       "title": "Design project",
       "text": "Bespoke solutions, non-standard materials and work following your own design project.",
       "noPrice": "No formula applies here — the estimator prices it from your materials.",
-      "cta": "Go to the request"
+      "cta": "Choose this package"
     },
     "packageTitle": "What the standard package covers",
     "packageItems": [
@@ -173,7 +173,7 @@
       "FROM_3M": "From 3 m"
     },
     "submit": "Calculate",
-    "designerHint": "The designer package is priced individually — no amount is shown in the browser.",
+    "designerHint": "An estimator will price this package individually based on your project.",
     "validation": {
       "areaRequired": "Enter the area",
       "areaNumber": "Area must be a number",
@@ -202,7 +202,8 @@
       "text": "The quote will be ready within 2 business days. Design solutions do not follow a formula — the estimator prices them from your materials.",
       "noPriceNote": "That is why no amount is shown here — neither an approximation nor a range."
     },
-    "rateVersion": "Rate version"
+    "rateVersion": "Rate version",
+    "fallbackNote": "This estimate uses baseline rates because current rates are unavailable. Confirm the price with your estimator."
   },
   "auth": {
     "login": {
@@ -419,7 +420,8 @@
       "historyTitle": "Version history",
       "activeVersion": "Active",
       "author": "Author",
-      "positiveRequired": "The value must be greater than zero"
+      "positiveRequired": "The value must be greater than zero",
+      "rangeOrderRequired": "The lower bound cannot exceed the upper bound"
     }
   },
   "errors": {

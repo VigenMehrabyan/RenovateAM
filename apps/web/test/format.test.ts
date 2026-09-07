@@ -25,7 +25,7 @@ describe('форматирование сумм', () => {
 describe('форматирование дат', () => {
   it('на hy перечисляет запасные локали, но не английскую', () => {
     // Часть движков не содержит данных CLDR для hy и молча даёт «Sep 22, 2026».
-    expect(dateLocales('hy')).toEqual(['hy-AM', 'hy', 'ru']);
+    expect(dateLocales('hy')).toEqual(['hy-AM', 'hy']);
     expect(dateLocales('hy')).not.toContain('en');
     expect(dateLocales('ru')).toEqual(['ru']);
     expect(dateLocales('en')).toEqual(['en']);
@@ -35,5 +35,11 @@ describe('форматирование дат', () => {
     expect(formatDate(undefined, 'ru')).toBe('—');
     expect(formatDate(null, 'ru')).toBe('—');
     expect(formatDateTime('не дата', 'ru')).toBe('—');
+  });
+
+  it('keeps Armenian date and time labels regardless of browser ICU support', () => {
+    const date = new Date(2026, 9, 7, 15, 5);
+    expect(formatDate(date, 'hy')).toBe('7 հոկտեմբերի 2026 թ.');
+    expect(formatDateTime(date, 'hy-AM')).toBe('7 հոկտեմբերի 2026 թ., 15:05');
   });
 });

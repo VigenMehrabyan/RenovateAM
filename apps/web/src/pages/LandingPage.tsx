@@ -1,7 +1,8 @@
 import { useTranslation } from 'react-i18next';
 import { calculateEstimate } from '@renovateam/pricing-core';
 import type { RateSet, WorkScope } from '@renovateam/pricing-core';
-import { ArchAssembly, DimensionLine } from '@/components/brand';
+import { DimensionLine } from '@/components/brand';
+import { Icon } from '@/components/Icon';
 import { ButtonLink, buttonClass } from '@/components/ui';
 import { CalculatorForm } from '@/features/pricing/CalculatorForm';
 import { useRates } from '@/features/pricing/use-rates';
@@ -16,8 +17,8 @@ import { useCountUp, useRevealRef, useSeen } from '@/lib/use-reveal';
  * пакетов 3+1 → состав стандартного пакета → вопросы и ответы. Плотные и
  * воздушные секции чередуются.
  *
- * Калькулятор остаётся в первом экране на любой ширине: на мобильной он идёт
- * сразу под заголовком и строкой срока, на lg занимает правую колонку героя.
+ * На мобильной калькулятор идёт сразу под заголовком и строкой срока,
+ * на lg занимает правую колонку героя.
  *
  * Ни одна анимация не задерживает появление текста: начальные состояния живут
  * за классом `motion`, который ставится только из скрипта и только когда
@@ -55,33 +56,34 @@ function Hero(): JSX.Element {
   const { t } = useTranslation();
 
   return (
-    <section className="on-dark bg-ink-900 text-ink-50">
-      <div className="mx-auto grid w-full max-w-6xl gap-8 px-4 pb-16 pt-10 sm:pt-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,27rem)] lg:gap-x-12 lg:pb-10 lg:pt-20">
-        <div className="lg:pt-4">
+    <section className="hero on-dark text-ink-50">
+      <div className="mx-auto grid w-full max-w-6xl items-center gap-8 px-4 py-8 sm:py-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,30rem)] lg:gap-x-14 lg:py-16">
+        <div className="hero-copy">
           <div className="flex items-center gap-3">
-            <ArchAssembly className="h-10 w-10 shrink-0" />
-            <p className="eyebrow-gold">{t('landing.eyebrow')}</p>
+            <p className="hero-eyebrow">{t('landing.eyebrow')}</p>
           </div>
 
-          <h1 className="display mt-6 text-4xl text-ink-50 sm:text-5xl lg:text-6xl">
-            {t('landing.title')}
-          </h1>
+          <h1 className="display hero-title mt-6 text-ink-50">{t('landing.title')}</h1>
 
           <p className="mt-5 max-w-prose text-base text-ink-200/90 sm:text-lg">
             {t('landing.lead')}
           </p>
 
-          <p className="mt-6 inline-flex items-center gap-3 border border-ink-700 px-3 py-2 text-sm text-ink-100">
-            <span className="h-1.5 w-1.5 shrink-0 bg-gold-500" aria-hidden="true" />
+          <p className="hero-status mt-6 inline-flex items-center gap-3 px-4 py-3 text-sm text-ink-100">
+            <Icon name="clock" />
             {t('landing.heroStatus')}
           </p>
         </div>
 
-        {/* Карточка калькулятора — главный объект героя. На lg она свешивается
-            с тёмной плоскости на светлую: место, где у референса стоит цена. */}
-        <div className="lg:-mb-24 lg:self-start">
-          <div id="calculator" className="border border-ink-200 bg-white p-5 text-ink-800 sm:p-6">
-            <h2 className="display text-2xl">{t('calculator.title')}</h2>
+        {/* Светлая стеклянная карточка отделяет расчёт от тёмного фона. */}
+        <div className="min-w-0">
+          <div id="calculator" className="calculator-glass p-5 text-ink-800 sm:p-7">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="display text-3xl">{t('calculator.title')}</h2>
+              <span className="icon-tile">
+                <Icon name="calculator" />
+              </span>
+            </div>
             <p className="mt-1 text-sm text-ink-600">{t('calculator.subtitle')}</p>
             <div className="mt-5">
               <CalculatorForm />
@@ -104,21 +106,16 @@ function Claims(): JSX.Element {
 
   return (
     <section className="bg-white">
-      {/* Поля по общей шкале секций (56 / 80), а не собственные 48: только
-          верхнее на lg увеличено до 128 — под ним висит карточка калькулятора,
-          свесившаяся с тёмной плоскости. */}
-      <div className="mx-auto w-full max-w-6xl px-4 pb-14 pt-14 sm:pb-20 sm:pt-20 lg:pt-32">
-        {/* Сетка держится на границах ячеек, а не на `gap-px` с подложкой:
-            при зазоре в 1 px колонки получали дробную ширину (на 1280 px —
-            278.75 px), и разделители садились на полпикселя — часть линий
-            рисовалась вдвое толще соседних. С границами внутри ячеек колонки
-            выходят целыми, а стык двух ячеек остаётся ровно одной линией. */}
-        <ul className="grid border-l border-t border-ink-200 sm:grid-cols-2 lg:grid-cols-4">
-          {claims.map((claim) => (
-            <li key={claim.title} className="border-b border-r border-ink-200 bg-white p-5">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-900">
-                {claim.title}
-              </h2>
+      <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:py-14">
+        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {claims.map((claim, index) => (
+            <li key={claim.title} className="claim-card p-5">
+              <span className="icon-tile mb-4">
+                <Icon
+                  name={(['calculator', 'shield', 'clock', 'file'] as const)[index] ?? 'check'}
+                />
+              </span>
+              <h2 className="text-base font-semibold text-ink-900">{claim.title}</h2>
               <p className="mt-2 text-sm text-ink-600">{claim.text}</p>
             </li>
           ))}
@@ -149,7 +146,7 @@ function Steps(): JSX.Element {
         {/* Размерная линия чертежа: прочерчивается при появлении секции. */}
         <DimensionLine className="mt-6 h-3 w-full text-ink-400" revealRef={revealLine} />
 
-        <ol className="mt-4">
+        <ol className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {steps.map((step, index) => (
             <Step key={step.title} index={index} title={step.title} text={step.text} />
           ))}
@@ -167,9 +164,9 @@ function Step({ index, title, text }: { index: number; title: string; text: stri
       ref={reveal}
       data-reveal
       style={{ ['--reveal-delay' as string]: `${index * 90}ms` }}
-      className="grid gap-2 border-b border-ink-200 py-6 last:border-b-0 sm:grid-cols-[6rem_minmax(0,1fr)] sm:gap-6"
+      className="step-card grid content-start gap-5 p-5"
     >
-      <span className="tnum display text-3xl leading-none text-gold-700 sm:text-4xl">
+      <span className="tnum display text-4xl leading-none text-accent-400">
         {String(index + 1).padStart(2, '0')}
       </span>
       <div>
@@ -218,7 +215,7 @@ function Packages({ rates }: { rates: RateSet }): JSX.Element {
               {t('landing.packagesTitle')}
             </h2>
           </div>
-          <dl className="border-l-2 border-gold-500 pl-4">
+          <dl className="border-l-2 border-accent-300 pl-4">
             <dt className="text-sm text-ink-600">{t('landing.baseRateLabel')}</dt>
             <dd className="mt-1 flex flex-wrap items-baseline gap-x-2">
               <span className="tnum text-xl font-semibold text-ink-900">
@@ -250,7 +247,7 @@ function PackageCard({ scope, rate }: { scope: WorkScope; rate: number }): JSX.E
   const shown = useCountUp(rate, seen);
 
   return (
-    <div ref={seenRef} className="lift-card flex flex-col p-5">
+    <div ref={seenRef} className="lift-card flex flex-col p-6">
       <h3 className="display text-2xl">{t(`calculator.workScopeOptions.${scope}`)}</h3>
       <p className="mt-2 flex-1 text-sm text-ink-600">{t(`landing.packages.${scope}`)}</p>
       <p className="mt-5 border-t border-ink-200 pt-4">
@@ -272,13 +269,17 @@ function DesignerCard(): JSX.Element {
   const { t } = useTranslation();
 
   return (
-    <div className="on-dark flex flex-col bg-ink-900 p-5 text-ink-50">
-      <p className="eyebrow-gold">{t('landing.designerCard.badge')}</p>
+    <div className="designer-card on-dark flex flex-col bg-ink-900 p-6 text-ink-50">
+      <p className="eyebrow-light">{t('landing.designerCard.badge')}</p>
       <h3 className="display mt-3 text-2xl text-ink-50">{t('landing.designerCard.title')}</h3>
       <p className="mt-2 flex-1 text-sm text-ink-200/90">{t('landing.designerCard.text')}</p>
       <div className="mt-5 border-t border-ink-700 pt-4">
         <p className="text-sm text-ink-200/90">{t('landing.designerCard.noPrice')}</p>
-        <ButtonLink to="/register" variant="onDark" className="mt-4 w-full">
+        <ButtonLink
+          to="/?finishPackage=DESIGNER#calculator"
+          variant="onDark"
+          className="mt-4 w-full"
+        >
           {t('landing.designerCard.cta')}
         </ButtonLink>
       </div>
@@ -302,16 +303,17 @@ function PackageContents(): JSX.Element {
           {t('landing.packageTitle')}
         </h2>
         {/* Границы ячеек вместо `gap-px` — см. пояснение в `Claims`. */}
-        <ul className="mt-6 grid border-l border-t border-ink-200 sm:grid-cols-2">
+        <ul className="mt-6 grid gap-3 sm:grid-cols-2">
           {items.map((item, index) => (
             <li
               key={item}
               // Нечётный последний пункт занимает обе колонки: иначе в сетке
               // остаётся пустая ячейка и читается как недостающий пункт.
-              className={`border-b border-r border-ink-200 bg-ink-50 px-4 py-3 text-sm text-ink-700 ${
+              className={`surface flex items-center gap-3 px-4 py-4 text-sm text-ink-700 ${
                 index === items.length - 1 && items.length % 2 === 1 ? 'sm:col-span-2' : ''
               }`}
             >
+              <Icon name="check" />
               {item}
             </li>
           ))}
@@ -336,25 +338,25 @@ function Faq(): JSX.Element {
         </h2>
         {/* Нативный <details>: раскрывается и без скриптов, читается программами
             чтения с экрана без единого атрибута aria. */}
-        <div className="mt-8 border-t border-ink-200">
+        <div className="mt-8 grid gap-3">
           {items.map((item) => (
-            <details key={item.q} className="group border-b border-ink-200">
-              <summary className="touch-target flex cursor-pointer list-none items-center justify-between gap-4 py-4 text-base font-medium text-ink-900 marker:content-none">
+            <details key={item.q} className="faq-item group">
+              <summary className="touch-target flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-5 text-base font-medium text-ink-900 marker:content-none">
                 <span>{item.q}</span>
                 <span
-                  className="shrink-0 text-xl leading-none text-gold-700 group-open:hidden"
+                  className="shrink-0 text-xl leading-none text-accent-500 group-open:hidden"
                   aria-hidden="true"
                 >
                   +
                 </span>
                 <span
-                  className="hidden shrink-0 text-xl leading-none text-gold-700 group-open:inline"
+                  className="hidden shrink-0 text-xl leading-none text-accent-500 group-open:inline"
                   aria-hidden="true"
                 >
                   −
                 </span>
               </summary>
-              <p className="max-w-prose pb-5 text-sm text-ink-600">{item.a}</p>
+              <p className="max-w-prose px-5 pb-5 text-base text-ink-600">{item.a}</p>
             </details>
           ))}
         </div>

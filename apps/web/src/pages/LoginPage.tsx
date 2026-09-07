@@ -43,7 +43,7 @@ export function LoginPage(): JSX.Element {
   const passwordError = errors.password?.message ? t(errors.password.message) : undefined;
 
   return (
-    <Page width="form">
+    <Page width="form" className="auth-page">
       <PageTitle>{t('auth.login.title')}</PageTitle>
 
       {formError ? (

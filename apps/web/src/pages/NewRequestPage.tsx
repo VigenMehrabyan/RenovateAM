@@ -16,8 +16,9 @@ import {
 import { useAuth } from '@/features/auth/auth-context';
 import { FileUploadSection } from '@/features/files/FileUploadSection';
 import type { UploadedItem } from '@/features/files/FileUploadSection';
-import { requestsApi } from '@/lib/api';
-import { clearEstimate, readEstimate } from '@/lib/estimate-storage';
+import { pricingApi, requestsApi } from '@/lib/api';
+import { attachEstimateId, clearEstimate, readEstimate } from '@/lib/estimate-storage';
+import { isLocale, toApiLocale } from '@/i18n';
 import { useErrorMessage } from '@/lib/use-error-message';
 
 /**
@@ -26,7 +27,7 @@ import { useErrorMessage } from '@/lib/use-error-message';
  * кнопки отправки показывается баннер (US-2).
  */
 export function NewRequestPage(): JSX.Element {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
   const toMessage = useErrorMessage();
@@ -44,6 +45,7 @@ export function NewRequestPage(): JSX.Element {
   const uploading = [...bti, ...design].some((item) => item.status === 'uploading');
 
   const submit = async (): Promise<void> => {
+    if (submitting || uploading || !verified) return;
     setError(null);
     setSubmitting(true);
     try {
@@ -51,8 +53,20 @@ export function NewRequestPage(): JSX.Element {
         .filter((item) => item.status === 'done' && item.fileId)
         .map((item) => item.fileId as string);
 
+      // Read again: background saving can finish after this page mounted.
+      // If it failed, persist the inputs before creating a request; never silently drop them.
+      const current = readEstimate();
+      let estimateId = current?.estimateId;
+      if (current && !estimateId) {
+        const saved = await pricingApi.estimate({
+          ...current.input,
+          locale: toApiLocale(isLocale(i18n.language) ? i18n.language : 'ru'),
+        });
+        estimateId = saved.id;
+        if (current.token) attachEstimateId(current.token, saved.id);
+      }
       const created = await requestsApi.create({
-        ...(stored?.estimateId ? { quickEstimateId: stored.estimateId } : {}),
+        ...(estimateId ? { quickEstimateId: estimateId } : {}),
         ...(comment.trim() ? { comment: comment.trim() } : {}),
         ...(fileIds.length ? { fileIds } : {}),
       });

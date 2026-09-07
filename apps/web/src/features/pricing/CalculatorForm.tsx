@@ -4,13 +4,20 @@
  * уходит фоном, только ради аналитики, и его провал результат не отменяет.
  */
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { Field, Select, TextInput, Button, describedBy } from '@/components/ui';
 import { toApiLocale, isLocale } from '@/i18n';
 import { pricingApi } from '@/lib/api';
-import { attachEstimateId, nextEstimateToken, saveEstimate } from '@/lib/estimate-storage';
+import {
+  attachEstimateId,
+  nextEstimateToken,
+  readEstimate,
+  saveEstimate,
+} from '@/lib/estimate-storage';
+import { Icon } from '@/components/Icon';
 import { calculatorSchema } from '@/lib/validation';
 import type { CalculatorValues } from '@/lib/validation';
 
@@ -23,11 +30,14 @@ const CEILINGS = ['UP_TO_3M', 'FROM_3M'] as const;
 export function CalculatorForm(): JSX.Element {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
 
   const {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<CalculatorValues>({
     resolver: zodResolver(calculatorSchema),
@@ -37,10 +47,15 @@ export function CalculatorForm(): JSX.Element {
       finishPackage: 'STANDARD',
       condition: 'NEW_BUILDING',
       ceilingHeight: 'UP_TO_3M',
+      ...readEstimate()?.input,
     },
   });
 
   const finishPackage = watch('finishPackage');
+  const requestedPackage = searchParams.get('finishPackage');
+  useEffect(() => {
+    if (requestedPackage === 'DESIGNER') setValue('finishPackage', 'DESIGNER');
+  }, [requestedPackage, location.key, setValue]);
 
   const onSubmit = handleSubmit((values) => {
     const token = nextEstimateToken();
@@ -67,7 +82,7 @@ export function CalculatorForm(): JSX.Element {
   const areaError = errors.areaSqm?.message ? t(errors.areaSqm.message) : undefined;
 
   return (
-    <form onSubmit={onSubmit} noValidate className="grid gap-4 sm:grid-cols-2">
+    <form onSubmit={onSubmit} noValidate className="calculator-form grid gap-4 sm:grid-cols-2">
       <Field
         id="areaSqm"
         label={`${t('calculator.area')}, ${t('calculator.areaUnit')}`}
@@ -150,6 +165,7 @@ export function CalculatorForm(): JSX.Element {
 
       <Button type="submit" className="mt-1 w-full sm:col-span-2" disabled={isSubmitting}>
         {t('calculator.submit')}
+        <Icon name="arrow" />
       </Button>
     </form>
   );

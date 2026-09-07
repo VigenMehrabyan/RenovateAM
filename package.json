@@ -4,12 +4,13 @@
   "private": true,
   "packageManager": "pnpm@10.28.0",
   "scripts": {
-    "build": "pnpm -r --filter @renovateam/pricing-core build && pnpm --filter @renovateam/api build",
+    "build": "pnpm -r --filter @renovateam/pricing-core build && pnpm --filter @renovateam/api build && pnpm --filter @renovateam/web build",
     "lint": "eslint . && node scripts/check-module-boundaries.mjs && prettier --check .",
     "typecheck": "pnpm --filter @renovateam/pricing-core build && pnpm -r typecheck",
-    "test": "pnpm --filter @renovateam/pricing-core build && pnpm -r test",
+    "test": "pnpm --filter @renovateam/pricing-core build && pnpm -r test && node --test scripts/*.test.mjs",
     "db:setup": "pnpm --filter @renovateam/api db:setup",
-    "db:seed": "pnpm --filter @renovateam/api db:seed"
+    "db:seed": "pnpm --filter @renovateam/api db:seed",
+    "dev": "node apps/web/node_modules/vite/bin/vite.js apps/web --config apps/web/vite.config.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.15.0",

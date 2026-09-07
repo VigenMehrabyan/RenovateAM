@@ -126,8 +126,11 @@ export class PricingService implements PricingPublicService {
     }
   }
 
-  async getQuickEstimate(id: string): Promise<QuickEstimateView | null> {
+  async getQuickEstimate(id: string, forUserId?: string): Promise<QuickEstimateView | null> {
     const estimate = await this.repository.findQuickEstimate(id);
+    if (forUserId && estimate?.userId && estimate.userId !== forUserId) {
+      throw new AppException(403, ErrorCode.FORBIDDEN, 'Quick estimate belongs to another user');
+    }
     return estimate ? toView(estimate) : null;
   }
 
@@ -142,6 +145,10 @@ export class PricingService implements PricingPublicService {
     note?: string,
   ): Promise<{ versionId: string; createdAt: string }> {
     const details: Array<{ field: string; code: string }> = [];
+    // Missing keys use the same defaults as buildRateSet.
+    if ((rates.range_min ?? DEFAULT_RANGE_MIN) > (rates.range_max ?? DEFAULT_RANGE_MAX)) {
+      details.push({ field: 'range_min', code: 'RANGE_ORDER' });
+    }
     for (const [key, value] of Object.entries(rates)) {
       if (!(RATE_KEYS as readonly string[]).includes(key)) {
         details.push({ field: key, code: 'UNKNOWN_RATE_KEY' });

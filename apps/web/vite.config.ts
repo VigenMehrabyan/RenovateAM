@@ -2,6 +2,9 @@
 import { resolve } from 'node:path';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
+import tailwindcss from 'tailwindcss';
+import autoprefixer from 'autoprefixer';
+import tailwindConfig from './tailwind.config';
 
 /**
  * Псевдонимы совпадают с tsconfig.json. `pricing-core` резолвится на исходники:
@@ -9,6 +12,17 @@ import { defineConfig } from 'vite';
  */
 export default defineConfig({
   plugins: [react()],
+  css: {
+    postcss: {
+      plugins: [
+        tailwindcss({
+          ...tailwindConfig,
+          content: [resolve(__dirname, 'index.html'), resolve(__dirname, 'src/**/*.{ts,tsx}')],
+        }),
+        autoprefixer(),
+      ],
+    },
+  },
   resolve: {
     alias: [
       { find: /^@\/(.*)$/, replacement: resolve(__dirname, 'src/$1') },
@@ -18,7 +32,7 @@ export default defineConfig({
       },
     ],
   },
-  server: { port: 5173 },
+  server: { port: 5173, host: '0.0.0.0', allowedHosts: ['terminal.local'] },
   build: { outDir: 'dist', sourcemap: true },
   test: {
     environment: 'jsdom',
