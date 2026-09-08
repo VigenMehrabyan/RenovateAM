@@ -113,8 +113,12 @@
   }
   select.field-control {
     cursor: pointer;
-    text-overflow: ellipsis;
     padding-right: 2rem;
+    /* Закрытый список — одна строка: длинная подпись обрезается многоточием,
+       а не переносится. Иначе поле становится выше соседнего в ряду сетки. */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .field-error {
     @apply mt-2 text-sm text-danger-500;
@@ -361,8 +365,31 @@
   }
   select.field-control {
     align-items: center;
+    overflow: visible;
+  }
+  /* Кнопка закрытого состояния и копия выбранного варианта внутри неё. */
+  select.field-control > button {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    flex: 1 1 auto;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: inherit;
+  }
+  select.field-control selectedcontent {
+    display: block;
+    min-width: 0;
+    flex: 1 1 auto;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   select.field-control::picker-icon {
+    flex: none;
     color: #5f706a;
     transition: rotate 200ms;
   }

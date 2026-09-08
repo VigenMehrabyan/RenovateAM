@@ -30,8 +30,12 @@ export function LanguageSwitcher({
   };
 
   return (
+    // `inline-flex w-fit`: рамка обязана обтягивать три кнопки. В шапке
+    // переключатель — элемент flex-строки и сжимался по содержимому сам, а в
+    // колонке футера тот же блочный `flex` растягивался на всю ширину ячейки
+    // сетки, и справа от EN оставалось до 200 px пустой рамки.
     <div
-      className={`language-switcher flex items-center ${className}`}
+      className={`language-switcher inline-flex w-fit items-center ${className}`}
       role="group"
       aria-label={t('lang.label')}
     >
