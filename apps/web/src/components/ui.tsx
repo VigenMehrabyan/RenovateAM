@@ -3,7 +3,7 @@
  * изумрудный акцент фирменного стиля, шампань — только в логотипе, семантика
  * статусов вынесена отдельными цветами и с акцентом не смешивается.
  */
-import { forwardRef } from 'react';
+import { forwardRef, useCallback, useEffect, useRef, useState } from 'react';
 import type {
   ButtonHTMLAttributes,
   InputHTMLAttributes,
@@ -167,9 +167,72 @@ export const TextInput = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLIn
   },
 );
 
+/** Поддерживает ли браузер настраиваемый список (`appearance: base-select`). */
+function supportsCustomizableSelect(): boolean {
+  // jsdom объявляет CSS без `supports` — проверяем сам метод, а не объект.
+  return typeof CSS !== 'undefined' && typeof CSS.supports === 'function'
+    ? CSS.supports('appearance', 'base-select')
+    : false;
+}
+
+/**
+ * Список выбора.
+ *
+ * `<button><selectedcontent>` — штатная разметка настраиваемого списка (Open
+ * UI): только в ней закрытое состояние — обычный элемент, которому можно
+ * задать `text-overflow: ellipsis`; кнопку, которую браузер рисует сам,
+ * селектором не достать. Без этого длинная армянская подпись
+ * «Ամբողջական վերանորոգում» переносилась на вторую строку, поле становилось
+ * на 24 px выше соседнего в ряду, и сетка калькулятора съезжала.
+ *
+ * Узлы добавляются из эффекта и только там, где `base-select` поддержан:
+ * в остальных браузерах разметка не нужна, а React о таком вложении не знает
+ * и на каждый список писал бы в консоль предупреждение. Список `<option>`
+ * остаётся за React — кнопка встаёт перед ним и на согласование не влияет.
+ *
+ * `title` — полная подпись выбранного варианта: в закрытом состоянии текст
+ * обрезан, и подсказка остаётся способом прочитать его целиком, не открывая
+ * список.
+ */
 export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(
-  function Select({ className = '', ...rest }, ref) {
-    return <select ref={ref} className={`field-control ${className}`} {...rest} />;
+  function Select({ className = '', title, ...rest }, ref) {
+    const element = useRef<HTMLSelectElement | null>(null);
+    const [selectedLabel, setSelectedLabel] = useState('');
+
+    const attach = useCallback(
+      (node: HTMLSelectElement | null) => {
+        element.current = node;
+        if (typeof ref === 'function') ref(node);
+        else if (ref) ref.current = node;
+      },
+      [ref],
+    );
+
+    useEffect(() => {
+      const node = element.current;
+      if (!node || !supportsCustomizableSelect()) return;
+      if (node.querySelector(':scope > button')) return;
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.appendChild(document.createElement('selectedcontent'));
+      node.insertBefore(button, node.firstChild);
+    }, []);
+
+    // Без списка зависимостей намеренно: подпись меняется и от выбора, и от
+    // смены языка. Повторный `setState` тем же значением React отбрасывает,
+    // так что цикла не возникает.
+    useEffect(() => {
+      setSelectedLabel(element.current?.selectedOptions[0]?.textContent?.trim() ?? '');
+    });
+
+    return (
+      <select
+        ref={attach}
+        className={`field-control ${className}`}
+        title={title ?? (selectedLabel || undefined)}
+        {...rest}
+      />
+    );
   },
 );
 

@@ -5,7 +5,7 @@ coverage/
 .env.local
 apps/api/src/generated/
 *.log
-.screenshots/
+.screenshots*/
 .logs/
 .fixtures/
 .screenshots-live/

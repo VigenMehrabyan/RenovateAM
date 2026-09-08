@@ -23,11 +23,13 @@ export class ResendEmailChannel implements NotificationChannel {
   }
 
   async send(event: NotificationEvent): Promise<void> {
-    const { subject, text } = renderTemplate(event);
+    // Обе версии: HTML — основная, text — запасная для почтовиков без HTML.
+    const { subject, text, html } = renderTemplate(event);
     const result = await this.client.emails.send({
       from: this.from,
       to: event.to,
       subject,
+      html,
       text,
     });
     if (result.error) {

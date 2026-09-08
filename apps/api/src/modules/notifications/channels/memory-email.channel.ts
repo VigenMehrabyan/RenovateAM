@@ -29,7 +29,8 @@ export class MemoryEmailChannel implements NotificationChannel {
     const rendered = renderTemplate(event);
     this.messages.push({ ...rendered, to: event.to, type: event.type, sentAt: new Date() });
     this.logger.debug(
-      `письмо "${event.type}" для ${event.to} (memory)\n${rendered.subject}\n${rendered.text}`,
+      `письмо "${event.type}" для ${event.to} (memory)\n${rendered.subject}\n${rendered.text}` +
+        `\n[html ${rendered.html.length} байт]`,
     );
     return Promise.resolve();
   }
