@@ -253,6 +253,8 @@ model Request {
   userId          String        @map("user_id") @db.Uuid
   quickEstimateId String?       @unique @map("quick_estimate_id") @db.Uuid
   status          RequestStatus @default(NEW)
+  /// Адрес объекта. Принадлежит заявке, а не профилю: объектов у клиента может быть несколько.
+  address         String        @db.VarChar(500)
   needsManual     Boolean       @default(false) @map("needs_manual")
   /// Комментарий клиента при создании либо сметчика при статусе NEEDS_INFO.
   comment         String?       @db.VarChar(2000)
@@ -268,8 +270,10 @@ model Request {
 
   /// Очередь сметчика: фильтр по статусу + сортировка по дате.
   @@index([status, createdAt])
-  /// Заявки конкретного пользователя в кабинете.
+  /// Окно антидубля «не более трёх заявок в час».
   @@index([userId, createdAt])
+  /// Список кабинета: сортировка по дате последнего изменения.
+  @@index([userId, updatedAt])
   @@map("requests")
 }
 
@@ -308,6 +312,31 @@ model Decision {
   @@map("decisions")
 }
 
+/// @owner: requests — PDF-смета, загруженная сметчиком. Актуальна последняя (isCurrent).
+///
+/// Смета — часть агрегата «заявка»: без неё заявка не переходит в QUOTE_READY,
+/// и клиент обязан видеть её в своей карточке. Загружает смету сметчик через
+/// модуль admin, но хранение и чтение принадлежат requests — иначе кабинет
+/// клиента пришлось бы собирать из админского модуля.
+model Quote {
+  id          String   @id @default(uuid()) @db.Uuid
+  requestId   String   @map("request_id") @db.Uuid
+  authorId    String?  @map("author_id") @db.Uuid
+  /// Ключ PDF-сметы в R2.
+  fileKey     String   @unique @map("file_key") @db.VarChar(500)
+  /// Итоговая сумма сметы, целое число драмов.
+  totalAmount Int      @map("total_amount")
+  isCurrent   Boolean  @default(true) @map("is_current")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  request Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  author  User?   @relation("QuoteAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([requestId, createdAt])
+  @@index([authorId])
+  @@map("quotes")
+}
+
 // ---------------------------------------------------------------------------
 // files
 // ---------------------------------------------------------------------------
@@ -337,28 +366,4 @@ model RequestFile {
   @@index([userId, requestId])
   @@index([uploadedAt])
   @@map("files")
-}
-
-// ---------------------------------------------------------------------------
-// admin
-// ---------------------------------------------------------------------------
-
-/// @owner: admin — PDF-смета, загруженная сметчиком. Актуальна последняя (isCurrent).
-model Quote {
-  id          String   @id @default(uuid()) @db.Uuid
-  requestId   String   @map("request_id") @db.Uuid
-  authorId    String?  @map("author_id") @db.Uuid
-  /// Ключ PDF-сметы в R2.
-  fileKey     String   @unique @map("file_key") @db.VarChar(500)
-  /// Итоговая сумма сметы, целое число драмов.
-  totalAmount Int      @map("total_amount")
-  isCurrent   Boolean  @default(true) @map("is_current")
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-
-  request Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  author  User?   @relation("QuoteAuthor", fields: [authorId], references: [id], onDelete: SetNull)
-
-  @@index([requestId, createdAt])
-  @@index([authorId])
-  @@map("quotes")
 }

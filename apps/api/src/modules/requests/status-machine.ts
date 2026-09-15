@@ -27,6 +27,16 @@ export const ACTIVE_STATUSES: readonly RequestStatus[] = [
   RequestStatus.QUOTE_READY,
 ];
 
+/**
+ * Статусы, в которых ход за клиентом: смета ждёт решения либо сметчику нужны
+ * данные. Такие заявки всплывают в начало списка кабинета — клиент открывает
+ * кабинет, чтобы узнать, что от него требуется, а не чтобы читать архив.
+ */
+export const CLIENT_ATTENTION_STATUSES: readonly RequestStatus[] = [
+  RequestStatus.QUOTE_READY,
+  RequestStatus.NEEDS_INFO,
+];
+
 /** Терминальные статусы: решение необратимо. */
 export const TERMINAL_STATUSES: readonly RequestStatus[] = [
   RequestStatus.ACCEPTED,

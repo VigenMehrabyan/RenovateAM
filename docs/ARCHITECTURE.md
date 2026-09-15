@@ -113,10 +113,10 @@ export class RequestsModule {}
 |---|---|---|---|
 | `auth` | Регистрация, вход, JWT, верификация e-mail, роли | `users`, `verification_tokens`, `refresh_tokens` | `notifications` |
 | `pricing` | Ставки, версионирование, движок расчёта, быстрые расчёты | `rate_versions`, `pricing_rates`, `quick_estimates` | — |
-| `requests` | Заявки, статусная машина, журнал, решения клиента | `requests`, `status_log`, `decisions` | `pricing`, `files`, `notifications`, `auth` |
+| `requests` | Заявки, статусная машина, журнал, решения клиента, сметы | `requests`, `status_log`, `decisions`, `quotes` | `pricing`, `files`, `notifications`, `auth` |
 | `files` | Подписанные ссылки, метаданные файлов, валидация | `files` | `auth` (только гейт верификации) |
 | `notifications` | Отправка писем через Resend, шаблоны, локализация | — (в MVP без своей таблицы) | — |
-| `admin` | Очередь сметчика, загрузка смет, редактор ставок | `quotes` | `requests`, `pricing`, `files`, `auth` |
+| `admin` | Очередь сметчика, загрузка смет, редактор ставок | — (собственных таблиц нет) | `requests`, `pricing`, `files`, `auth` |
 
 `notifications` и `pricing` — листья графа зависимостей: они ни к кому не обращаются, поэтому выносятся в отдельный сервис первыми и без изменений вызывающего кода.
 
@@ -186,25 +186,24 @@ export interface FileMeta {
 // modules/requests/public/index.ts
 export interface RequestsPublicService {
   getById(requestId: string): Promise<RequestView | null>;
-  /** Есть ли у клиента активная заявка (гейт «одна активная заявка»). */
-  hasActiveRequest(userId: string): Promise<boolean>;
+  /** Карточка вместе с журналом статусов — её же видит и клиент, и админка. */
+  getDetailById(requestId: string): Promise<RequestDetailView | null>;
   /** Смена статуса из admin. Единственная точка перехода статусов. */
   transitionStatus(cmd: TransitionCommand): Promise<RequestView>;
   /** Проверка владения — files и admin спрашивают «этот файл чей?». */
   isOwnedBy(requestId: string, userId: string): Promise<boolean>;
+  /** Регистрация загруженной сметчиком сметы: файл кладёт admin, строку — requests. */
+  registerQuote(params: {
+    requestId: string; authorId: string; fileKey: string; totalAmount: number;
+  }): Promise<RequestQuoteView>;
+  /** Актуальная смета вместе с ключом файла — для подписанной ссылки. */
+  getCurrentQuote(requestId: string): Promise<RequestQuoteWithKey | null>;
 }
 export interface TransitionCommand {
   requestId: string;
   to: RequestStatus;
   actor: { id: string; role: UserRole };
   comment?: string;
-  /**
-   * Есть ли у заявки актуальная смета. Признак передаёт владелец таблицы
-   * `quotes` (модуль admin): инвариант «QUOTE_READY только при наличии сметы»
-   * проверяет requests, но чужую таблицу не читает — и цикла admin ↔ requests
-   * не возникает.
-   */
-  hasCurrentQuote?: boolean;
 }
 ```
 
@@ -340,7 +339,7 @@ PostgreSQL, Prisma. Полная схема — [`apps/api/prisma/schema.prisma`
 | `status_log` | requests | Журнал смены статусов |
 | `decisions` | requests | Решение клиента по смете |
 | `files` | files | Файлы клиента (БТИ, дизайн) |
-| `quotes` | admin | PDF-сметы сметчика |
+| `quotes` | requests | PDF-сметы сметчика |
 
 ### 4.1 `users` (auth)
 
@@ -441,22 +440,32 @@ CREATE UNIQUE INDEX rate_versions_single_active
 | `user_id` | uuid | FK → users, cascade |
 | `quick_estimate_id` | uuid? | FK → quick_estimates, **unique**, set null |
 | `status` | enum RequestStatus | default `NEW` |
+| `address` | varchar(500) | not null — **адрес объекта**, принадлежит заявке |
 | `needs_manual` | bool | снапшот маршрутизации |
 | `comment` | varchar(2000) | комментарий клиента / сметчика |
 | `created_at`, `updated_at` | timestamptz | |
 
-Индексы: `(status, created_at)` — **основной запрос очереди сметчика** (US-5: фильтр по статусу + сортировка по дате); `(user_id, created_at)` — кабинет клиента.
+Индексы: `(status, created_at)` — **основной запрос очереди сметчика** (US-5: фильтр по статусу + сортировка по дате); `(user_id, created_at)` — окно антидубля; `(user_id, updated_at)` — список кабинета, отсортированный по дате последнего изменения.
+
+`address` — адрес **объекта**. В первой версии заявка у клиента была одна, и адрес жил в профиле; с несколькими заявками он принадлежит объекту. `users.address` остаётся контактным адресом и из формы заявки больше не берётся — форма лишь подставляет его как значение по умолчанию.
 
 `quick_estimate_id` уникален: один расчёт нельзя приложить к двум заявкам. Nullable — заявка при дизайнерском пакете может не иметь автооценки.
 
-Требование «активная заявка у клиента одна» (US-4) выражается частичным уникальным индексом:
+Требование «активная заявка у клиента одна» снято: заказчик разрешил вести несколько
+заявок одновременно, и частичный уникальный индекс `requests_one_active_per_user`
+удалён миграцией `0002_multiple_requests_and_address`.
+
+Индекс, помимо инварианта, защищал от двойного нажатия, поэтому вместо него введено
+окно антидубля: **не более трёх созданных заявок в час на пользователя**. Гонка
+по-прежнему исключена — счётчик и вставка идут одной транзакцией под
+`pg_advisory_xact_lock` по `user_id`, то есть параллельные отправки проверяют
+счётчик по очереди, а не одновременно:
 
 ```sql
-CREATE UNIQUE INDEX requests_one_active_per_user
-  ON requests (user_id) WHERE status IN ('NEW','IN_PROGRESS','NEEDS_INFO','QUOTE_READY');
+SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0));
+-- SELECT count(*) FROM requests WHERE user_id = $1 AND created_at >= now() - interval '1 hour'
+-- >= 3 → 429 REQUEST_LIMIT_REACHED, иначе INSERT
 ```
-
-Это гонко-устойчиво, в отличие от проверки «сначала SELECT, потом INSERT».
 
 ### 4.7 `status_log` (requests)
 
@@ -498,11 +507,18 @@ ALTER TABLE decisions ADD CONSTRAINT decisions_other_comment_required
 
 Двухфазность (`created_at` → `uploaded_at`) обязательна: клиент может получить ссылку и не загрузить файл. Пока `uploaded_at IS NULL`, файла для системы не существует.
 
-### 4.10 `quotes` (admin)
+### 4.10 `quotes` (requests)
 
 `id`, `request_id` (FK, cascade), `author_id` (FK → users, set null), `file_key` varchar(500) **unique**, `total_amount` **int** (драмы), `is_current` bool, `created_at`. Индексы `(request_id, created_at)`, `(author_id)`.
 
 Несколько смет на заявку допускаются намеренно: «Сметчик загрузил смету не в ту заявку → замена файла с записью в журнал» (Edge cases). Старая запись не удаляется, у неё снимается `is_current`; клиенту показывается только текущая.
+
+Владелец таблицы — `requests`, а не `admin`: смета часть агрегата «заявка» (без неё
+запрещён переход в `QUOTE_READY`), и клиент обязан видеть её в своём кабинете. Пока
+таблицей владел `admin`, смету отдавал только админский `getRequestCard`, а кабинет
+клиента при статусе «Смета готова» показывал «Смета ещё не загружена». `admin`
+остаётся тем, кто **загружает** смету: кладёт PDF в хранилище и вызывает
+`registerQuote`.
 
 ---
 
@@ -605,12 +621,14 @@ type EstimateResponse =
 ```ts
 // POST /requests — verified
 interface CreateRequestDto {
+  address: string;            // адрес ОБЪЕКТА, 5..500, обязателен
   quickEstimateId?: string;   // если расчёт был
   comment?: string;           // ≤2000
   fileIds?: string[];         // подтверждённые файлы, ≤10
 }
 interface RequestResponse {
-  id: string; number: number; status: RequestStatus; needsManual: boolean;
+  id: string; number: number; status: RequestStatus; address: string;
+  needsManual: boolean;
   comment: string | null; createdAt: string; updatedAt: string;
   estimate: QuickEstimateView | null;
   files: FileMeta[];
@@ -618,13 +636,33 @@ interface RequestResponse {
   decision: { result: DecisionResult; reason: RejectionReason | null;
               comment: string | null; createdAt: string } | null;
 }
-// 201 · 403 EMAIL_NOT_VERIFIED · 409 ACTIVE_REQUEST_EXISTS
-// 410 ESTIMATE_EXPIRED · 422 VALIDATION_FAILED
+/**
+ * Параметры расчёта лежат ПЛОСКО, признак ручного рассмотрения —
+ * `needsManualReview`, как в pricing-core и в ответе POST /pricing/estimate.
+ */
+interface QuickEstimateView {
+  id: string; rateVersionId: string; needsManualReview: boolean;
+  areaSqm: number; objectType: ObjectType; workScope: WorkScope;
+  finishPackage: FinishPackage; condition: PropertyCondition;
+  ceilingHeight: CeilingHeight;
+  amountBase: number | null;    // null при DESIGNER — сумм не существует
+  amountMin: number | null; amountMax: number | null;
+  createdAt: string; expiresAt: string;
+}
+// 201 · 403 EMAIL_NOT_VERIFIED · 410 ESTIMATE_EXPIRED
+// 422 VALIDATION_FAILED · 429 REQUEST_LIMIT_REACHED (>3 заявок в час)
 ```
 
 ```ts
 // GET /requests/me — client → RequestResponse[]  (200)
-// GET /requests/:id — client (только своя) → RequestResponse
+//   Порядок: сначала требующие внимания клиента (QUOTE_READY, NEEDS_INFO),
+//   дальше по updatedAt по убыванию. Строка списка несёт номер, адрес,
+//   статус, даты и estimate (площадь, объём работ, пакет).
+// GET /requests/:id — client (только своя) / staff
+//   → RequestResponse + statusLog[]  (смета и журнал видны владельцу заявки)
+//   200 · 403 FORBIDDEN · 404 NOT_FOUND
+// GET /requests/:id/quote/download-url — client (владелец) / staff
+//   → { url, expiresAt }, TTL 15 минут
 //   200 · 403 FORBIDDEN · 404 NOT_FOUND
 ```
 
@@ -743,7 +781,8 @@ interface UpdateRatesResponse { versionId: string; createdAt: string }
 | `POST /pricing/estimate` | public | Расчёт + сохранение для аналитики |
 | `POST /requests` | verified | Создать заявку |
 | `GET /requests/me` | client | Свои заявки |
-| `GET /requests/:id` | client (своя) / staff | Заявка целиком |
+| `GET /requests/:id` | client (своя) / staff | Заявка целиком: смета и журнал статусов |
+| `GET /requests/:id/quote/download-url` | client (владелец) / staff | Ссылка на свою смету, 15 мин |
 | `POST /requests/:id/decision` | verified (владелец) | Принять / отклонить смету |
 | `POST /files/upload-url` | verified | Подписанная ссылка на загрузку |
 | `POST /files/:id/confirm` | verified (владелец) | Подтверждение загрузки (HEAD в R2) |
@@ -970,12 +1009,12 @@ interface ApiError {
 | 401 | `INVALID_CREDENTIALS`, `ACCESS_TOKEN_EXPIRED`, `REFRESH_INVALID` |
 | 403 | `FORBIDDEN`, `EMAIL_NOT_VERIFIED` |
 | 404 | `NOT_FOUND` |
-| 409 | `EMAIL_ALREADY_REGISTERED`, `ACTIVE_REQUEST_EXISTS`, `DECISION_ALREADY_MADE`, `INVALID_STATUS_TRANSITION`, `TOKEN_ALREADY_USED`, `FILE_LIMIT_REACHED`, `UPLOAD_NOT_FOUND` |
+| 409 | `EMAIL_ALREADY_REGISTERED`, `DECISION_ALREADY_MADE`, `INVALID_STATUS_TRANSITION`, `TOKEN_ALREADY_USED`, `FILE_LIMIT_REACHED`, `UPLOAD_NOT_FOUND` |
 | 410 | `TOKEN_EXPIRED`, `ESTIMATE_EXPIRED` |
 | 413 | `FILE_TOO_LARGE` |
 | 415 | `UNSUPPORTED_MEDIA_TYPE` |
 | 422 | `VALIDATION_FAILED`, `AREA_OUT_OF_RANGE`, `COMMENT_REQUIRED` |
-| 429 | `RATE_LIMITED`, `RESEND_TOO_SOON` (+ `Retry-After`) |
+| 429 | `RATE_LIMITED`, `RESEND_TOO_SOON` (+ `Retry-After`), `REQUEST_LIMIT_REACHED` |
 | 500 | `INTERNAL_ERROR` — деталей наружу не отдаём, в лог пишем стек |
 
 Что логируется: `requestId`, метод, путь, статус, длительность, `userId` (если есть), `code`. Что **не** логируется никогда: пароли, токены (access, refresh, верификационные), тела запросов `/auth/*`, подписанные URL целиком (только ключ объекта). Логгер — pino с явным списком редактируемых полей.

@@ -32,9 +32,16 @@ export class RequestsController {
     return this.requests.listOwn(user.id);
   }
 
+  /** Заявка целиком: параметры, файлы, смета и журнал статусов. */
   @Get(':id')
   async getOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
     return this.requests.getForActor(id, { id: user.id, role: user.role });
+  }
+
+  /** Ссылка на смету для владельца заявки (для staff есть свой маршрут в админке). */
+  @Get(':id/quote/download-url')
+  async quoteDownloadUrl(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
+    return this.requests.getQuoteDownloadUrl(id, { id: user.id, role: user.role });
   }
 
   @UseGuards(EmailVerifiedGuard)

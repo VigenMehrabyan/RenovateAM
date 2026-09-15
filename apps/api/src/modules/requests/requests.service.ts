@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { AppException } from '@common/errors/app.exception';
 import { ErrorCode } from '@common/errors/error-codes';
 import { DecisionResult, RejectionReason, RequestStatus, UserRole } from '@db/enums';
+import type { Quote } from '@db';
 import { AUTH_PUBLIC_SERVICE, type AuthPublicService } from '@modules/auth/public';
 import { FILES_PUBLIC_SERVICE, type FilesPublicService } from '@modules/files/public';
 import {
@@ -12,13 +13,35 @@ import { PRICING_PUBLIC_SERVICE, type PricingPublicService } from '@modules/pric
 import type { CreateRequestDto } from './dto/create-request.dto';
 import type { DecisionDto } from './dto/decision.dto';
 import { RequestsRepository, type RequestWithDecision } from './requests.repository';
-import { ACTIVE_STATUSES, checkTransition, isStaffRole, TERMINAL_STATUSES } from './status-machine';
+import {
+  CLIENT_ATTENTION_STATUSES,
+  checkTransition,
+  isStaffRole,
+  TERMINAL_STATUSES,
+} from './status-machine';
 import type {
+  RequestDetailView,
+  RequestQuoteView,
+  RequestQuoteWithKey,
   RequestsPublicService,
   RequestView,
   StatusLogView,
   TransitionCommand,
 } from './public';
+
+/**
+ * Антидубль вместо снятого инварианта «одна активная заявка».
+ *
+ * Заявок у клиента может быть сколько угодно одновременно, но три штуки за час
+ * — это уже не «второй объект», а промах по кнопке или перезагрузка страницы
+ * с повторной отправкой. Порог выбран выше правдоподобного ручного сценария
+ * (посчитал и отправил два-три объекта подряд) и ниже любого случайного
+ * дребезга.
+ */
+export const MAX_REQUESTS_PER_WINDOW = 3;
+
+/** Длина окна антидубля — один час. */
+export const REQUEST_WINDOW_MS = 60 * 60 * 1000;
 
 @Injectable()
 export class RequestsService implements RequestsPublicService {
@@ -36,14 +59,6 @@ export class RequestsService implements RequestsPublicService {
   // --- создание ------------------------------------------------------------
 
   async create(userId: string, dto: CreateRequestDto): Promise<RequestView> {
-    if (await this.hasActiveRequest(userId)) {
-      throw new AppException(
-        409,
-        ErrorCode.ACTIVE_REQUEST_EXISTS,
-        'Client already has an active request',
-      );
-    }
-
     let needsManual = true;
     let quickEstimateId: string | null = null;
 
@@ -56,29 +71,32 @@ export class RequestsService implements RequestsPublicService {
       if (new Date(estimate.expiresAt).getTime() < Date.now()) {
         throw new AppException(410, ErrorCode.ESTIMATE_EXPIRED, 'Quick estimate expired');
       }
-      needsManual = estimate.needsManual;
+      needsManual = estimate.needsManualReview;
       quickEstimateId = estimate.id;
     }
 
-    const created = await this.repository
-      .createWithLog({
+    const created = await this.repository.createWithLogWithinLimit(
+      {
         userId,
         quickEstimateId,
         status: RequestStatus.NEW,
+        address: dto.address.trim(),
         needsManual,
         comment: dto.comment ?? null,
-      })
-      .catch((error: unknown) => {
-        // Гонка двух параллельных отправок ловится уникальным индексом.
-        if (isUniqueViolation(error)) {
-          throw new AppException(
-            409,
-            ErrorCode.ACTIVE_REQUEST_EXISTS,
-            'Client already has an active request',
-          );
-        }
-        throw error;
-      });
+      },
+      {
+        maxPerWindow: MAX_REQUESTS_PER_WINDOW,
+        windowStart: new Date(Date.now() - REQUEST_WINDOW_MS),
+      },
+    );
+
+    if (!created) {
+      throw new AppException(
+        429,
+        ErrorCode.REQUEST_LIMIT_REACHED,
+        `No more than ${MAX_REQUESTS_PER_WINDOW} requests per hour`,
+      );
+    }
 
     if (dto.fileIds && dto.fileIds.length > 0) {
       await this.files.attachToRequest(dto.fileIds, created.id, userId);
@@ -107,26 +125,37 @@ export class RequestsService implements RequestsPublicService {
     return request ? this.toView(request) : null;
   }
 
+  async getDetailById(requestId: string): Promise<RequestDetailView | null> {
+    const request = await this.repository.findById(requestId);
+    if (!request) return null;
+    return this.toDetailView(request);
+  }
+
   /** Чтение с проверкой доступа: свои заявки — клиенту, любые — сотруднику. */
   async getForActor(
     requestId: string,
     actor: { id: string; role: UserRole },
-  ): Promise<RequestView> {
+  ): Promise<RequestDetailView> {
     const request = await this.repository.findById(requestId);
     if (!request) throw new AppException(404, ErrorCode.NOT_FOUND, 'Request not found');
     if (!isStaffRole(actor.role) && request.userId !== actor.id) {
       throw new AppException(403, ErrorCode.FORBIDDEN, 'Request belongs to another user');
     }
-    return this.toView(request);
+    return this.toDetailView(request);
   }
 
+  /**
+   * Список заявок клиента. Сначала те, где ход за клиентом (смета готова,
+   * нужны данные), дальше — по дате последнего изменения: кабинет открывают,
+   * чтобы увидеть, что требуется сделать.
+   */
   async listOwn(userId: string): Promise<RequestView[]> {
     const requests = await this.repository.listByUser(userId);
-    return Promise.all(requests.map((request) => this.toView(request)));
-  }
-
-  async hasActiveRequest(userId: string): Promise<boolean> {
-    return (await this.repository.countActiveByUser(userId, ACTIVE_STATUSES)) > 0;
+    const ordered = [
+      ...requests.filter((request) => CLIENT_ATTENTION_STATUSES.includes(request.status)),
+      ...requests.filter((request) => !CLIENT_ATTENTION_STATUSES.includes(request.status)),
+    ];
+    return this.toViews(ordered);
   }
 
   async isOwnedBy(requestId: string, userId: string): Promise<boolean> {
@@ -148,7 +177,7 @@ export class RequestsService implements RequestsPublicService {
       take: params.pageSize,
       sortDirection: params.sortDirection,
     });
-    return { items: await Promise.all(items.map((item) => this.toView(item))), total };
+    return { items: await this.toViews(items), total };
   }
 
   async getStatusLog(requestId: string): Promise<StatusLogView[]> {
@@ -161,6 +190,49 @@ export class RequestsService implements RequestsPublicService {
       comment: entry.comment,
       createdAt: entry.createdAt.toISOString(),
     }));
+  }
+
+  // --- смета ---------------------------------------------------------------
+
+  async registerQuote(params: {
+    requestId: string;
+    authorId: string;
+    fileKey: string;
+    totalAmount: number;
+  }): Promise<RequestQuoteView> {
+    const quote = await this.repository.createQuote({
+      requestId: params.requestId,
+      authorId: params.authorId,
+      fileKey: params.fileKey,
+      totalAmount: params.totalAmount,
+    });
+    return toQuoteView(quote);
+  }
+
+  async getCurrentQuote(requestId: string): Promise<RequestQuoteWithKey | null> {
+    const quote = await this.repository.findCurrentQuote(requestId);
+    return quote ? { ...toQuoteView(quote), fileKey: quote.fileKey } : null;
+  }
+
+  /**
+   * Подписанная ссылка на смету для владельца заявки.
+   *
+   * Клиенту нужен собственный маршрут: `/admin/...` закрыт ролевым гвардом,
+   * а `/files/:id/download-url` знает только о файлах клиента — смета лежит
+   * в таблице quotes, и по её идентификатору тот эндпоинт отвечал 404.
+   */
+  async getQuoteDownloadUrl(
+    requestId: string,
+    actor: { id: string; role: UserRole },
+  ): Promise<{ url: string; expiresAt: string }> {
+    const request = await this.repository.findById(requestId);
+    if (!request) throw new AppException(404, ErrorCode.NOT_FOUND, 'Request not found');
+    if (!isStaffRole(actor.role) && request.userId !== actor.id) {
+      throw new AppException(403, ErrorCode.FORBIDDEN, 'Request belongs to another user');
+    }
+    const quote = await this.repository.findCurrentQuote(requestId);
+    if (!quote) throw new AppException(404, ErrorCode.NOT_FOUND, 'Quote not found');
+    return this.files.createDownloadUrlForKey(quote.fileKey);
   }
 
   // --- переходы ------------------------------------------------------------
@@ -208,14 +280,17 @@ export class RequestsService implements RequestsPublicService {
       );
     }
 
-    // Смету нельзя объявить готовой, пока её нет. Признак приходит от
-    // владельца таблицы quotes — модуль requests её не читает.
-    if (command.to === RequestStatus.QUOTE_READY && command.hasCurrentQuote === false) {
-      throw new AppException(
-        409,
-        ErrorCode.INVALID_STATUS_TRANSITION,
-        'Request has no current quote',
-      );
+    // Смету нельзя объявить готовой, пока её нет. Таблицей quotes владеет этот
+    // же модуль, поэтому инвариант проверяется здесь, а не со слов вызывающего.
+    if (command.to === RequestStatus.QUOTE_READY) {
+      const quote = await this.repository.findCurrentQuote(request.id);
+      if (!quote) {
+        throw new AppException(
+          409,
+          ErrorCode.INVALID_STATUS_TRANSITION,
+          'Request has no current quote',
+        );
+      }
     }
 
     const updated = await this.repository.transition({
@@ -332,7 +407,32 @@ export class RequestsService implements RequestsPublicService {
     });
   }
 
+  private async toDetailView(request: RequestWithDecision): Promise<RequestDetailView> {
+    const [view, statusLog] = await Promise.all([
+      this.toView(request),
+      this.getStatusLog(request.id),
+    ]);
+    return { ...view, statusLog };
+  }
+
   private async toView(request: RequestWithDecision): Promise<RequestView> {
+    const quote = await this.repository.findCurrentQuote(request.id);
+    return this.composeView(request, quote);
+  }
+
+  /** Список: сметы читаются одним запросом, а не по одному на строку. */
+  private async toViews(requests: RequestWithDecision[]): Promise<RequestView[]> {
+    const quotes = await this.repository.findCurrentQuotes(requests.map((item) => item.id));
+    const byRequestId = new Map(quotes.map((quote) => [quote.requestId, quote]));
+    return Promise.all(
+      requests.map((request) => this.composeView(request, byRequestId.get(request.id) ?? null)),
+    );
+  }
+
+  private async composeView(
+    request: RequestWithDecision,
+    quote: Quote | null,
+  ): Promise<RequestView> {
     const [estimate, files] = await Promise.all([
       request.quickEstimateId ? this.pricing.getQuickEstimate(request.quickEstimateId) : null,
       this.files.listByRequest(request.id),
@@ -343,12 +443,14 @@ export class RequestsService implements RequestsPublicService {
       number: request.number,
       userId: request.userId,
       status: request.status,
+      address: request.address,
       needsManual: request.needsManual,
       comment: request.comment,
       createdAt: request.createdAt.toISOString(),
       updatedAt: request.updatedAt.toISOString(),
       estimate,
       files,
+      quote: quote ? toQuoteView(quote) : null,
       decision: request.decision
         ? {
             result: request.decision.result,
@@ -361,8 +463,10 @@ export class RequestsService implements RequestsPublicService {
   }
 }
 
-/** Нарушение уникального индекса PostgreSQL. */
-function isUniqueViolation(error: unknown): boolean {
-  const code = (error as { code?: string }).code;
-  return code === 'P2002' || code === '23505';
+function toQuoteView(quote: Quote): RequestQuoteView {
+  return {
+    id: quote.id,
+    totalAmount: quote.totalAmount,
+    createdAt: quote.createdAt.toISOString(),
+  };
 }

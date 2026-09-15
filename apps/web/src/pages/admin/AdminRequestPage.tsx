@@ -74,6 +74,7 @@ export function AdminRequestPage(): JSX.Element {
         <Section title={t('admin.request.paramsTitle')} className="mt-8">
           {data.estimate ? (
             <dl className="surface p-4">
+              <DataRow label={t('cabinet.addressLabel')} value={data.address} />
               <DataRow
                 label={t('calculator.area')}
                 value={
@@ -120,7 +121,12 @@ export function AdminRequestPage(): JSX.Element {
               />
             </dl>
           ) : (
-            <p className="text-sm text-ink-500">{t('request.new.noEstimate')}</p>
+            <>
+              <dl className="surface p-4">
+                <DataRow label={t('cabinet.addressLabel')} value={data.address} />
+              </dl>
+              <p className="mt-3 text-sm text-ink-500">{t('request.new.noEstimate')}</p>
+            </>
           )}
         </Section>
 
@@ -172,7 +178,7 @@ export function AdminRequestPage(): JSX.Element {
                 label={t('auth.fields.phone')}
                 value={<span className="tnum">{data.client.phone}</span>}
               />
-              <DataRow label={t('auth.fields.address')} value={data.client.address} />
+              <DataRow label={t('admin.request.clientAddress')} value={data.client.address} />
             </dl>
           </div>
         ) : null}

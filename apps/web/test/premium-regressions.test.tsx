@@ -22,6 +22,7 @@ const input: CalculatorValues = {
   ceilingHeight: 'FROM_3M',
 };
 const stored = { input, calculatedAt: '2026-09-07T10:00:00.000Z', token: 'current' };
+const ADDRESS = 'Ереван, Маштоца 10';
 
 beforeEach(() => {
   clearEstimate();
@@ -105,8 +106,11 @@ describe('estimate and request regressions', () => {
     const estimate = vi.spyOn(pricingApi, 'estimate');
     renderWithProviders(<App />, { route: '/requests/new', user: makeUser() });
     attachEstimateId('current', 'late-id');
+    await userEvent.type(screen.getByLabelText('Адрес объекта'), ADDRESS);
     await userEvent.click(screen.getByRole('button', { name: 'Отправить заявку' }));
-    await waitFor(() => expect(create).toHaveBeenCalledWith({ quickEstimateId: 'late-id' }));
+    await waitFor(() =>
+      expect(create).toHaveBeenCalledWith({ address: ADDRESS, quickEstimateId: 'late-id' }),
+    );
     expect(estimate).not.toHaveBeenCalled();
   });
 
@@ -123,8 +127,11 @@ describe('estimate and request regressions', () => {
       expiresAt: '2026-10-07T10:00:00Z',
     });
     renderWithProviders(<App />, { route: '/requests/new', user: makeUser() });
+    await userEvent.type(screen.getByLabelText('Адрес объекта'), ADDRESS);
     await userEvent.click(screen.getByRole('button', { name: 'Отправить заявку' }));
-    await waitFor(() => expect(create).toHaveBeenCalledWith({ quickEstimateId: 'retry-id' }));
+    await waitFor(() =>
+      expect(create).toHaveBeenCalledWith({ address: ADDRESS, quickEstimateId: 'retry-id' }),
+    );
     expect(estimate).toHaveBeenCalledWith({ ...input, locale: 'RU' });
   });
 
@@ -133,9 +140,25 @@ describe('estimate and request regressions', () => {
     const create = vi.spyOn(requestsApi, 'create');
     vi.spyOn(pricingApi, 'estimate').mockRejectedValue(new Error('offline'));
     renderWithProviders(<App />, { route: '/requests/new', user: makeUser() });
+    await userEvent.type(screen.getByLabelText('Адрес объекта'), ADDRESS);
     await userEvent.click(screen.getByRole('button', { name: 'Отправить заявку' }));
     expect(await screen.findByRole('alert')).toBeInTheDocument();
     expect(create).not.toHaveBeenCalled();
     expect(readEstimate()?.input).toEqual(input);
+  });
+
+  /**
+   * Адрес объекта больше не берётся из профиля молча: заявок у клиента может
+   * быть несколько, и отправка «не туда» стоила бы выезда сметчика.
+   */
+  it('does not send a request without a property address', async () => {
+    saveEstimate(stored);
+    const create = vi.spyOn(requestsApi, 'create');
+    renderWithProviders(<App />, { route: '/requests/new', user: makeUser() });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Отправить заявку' }));
+
+    expect(await screen.findByText('Укажите адрес объекта')).toBeInTheDocument();
+    expect(create).not.toHaveBeenCalled();
   });
 });

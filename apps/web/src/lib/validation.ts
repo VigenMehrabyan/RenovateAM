@@ -75,6 +75,17 @@ export const registerSchema = z.object({
 
 export type RegisterValues = z.infer<typeof registerSchema>;
 
+/**
+ * Адрес объекта в заявке. Границы те же, что у контактного адреса при
+ * регистрации: сервер проверяет ровно это (CreateRequestDto).
+ */
+export const requestAddressSchema = z
+  .string()
+  .trim()
+  .min(1, 'auth.validation.addressRequired')
+  .min(5, 'auth.validation.addressShort')
+  .max(500, 'auth.validation.addressShort');
+
 export const loginSchema = z.object({
   email: z
     .string()

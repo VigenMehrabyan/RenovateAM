@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -12,19 +12,25 @@ import {
   PageTitle,
   Section,
   TextArea,
+  TextInput,
 } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { FileUploadSection } from '@/features/files/FileUploadSection';
 import type { UploadedItem } from '@/features/files/FileUploadSection';
-import { pricingApi, requestsApi } from '@/lib/api';
+import { authApi, pricingApi, requestsApi } from '@/lib/api';
 import { attachEstimateId, clearEstimate, readEstimate } from '@/lib/estimate-storage';
 import { isLocale, toApiLocale } from '@/i18n';
 import { useErrorMessage } from '@/lib/use-error-message';
+import { requestAddressSchema } from '@/lib/validation';
 
 /**
  * Создание заявки. Файлы не обязательны (US-3), но если они есть — заявка
  * ссылается на уже подтверждённые загрузки. Неподтверждённому e-mail вместо
  * кнопки отправки показывается баннер (US-2).
+ *
+ * Адрес объекта спрашивается здесь, а не берётся из профиля: заявок у клиента
+ * может быть несколько, и объект у каждой свой. Контактный адрес из профиля
+ * подставляется как значение по умолчанию — чаще всего он и есть нужный.
  */
 export function NewRequestPage(): JSX.Element {
   const { t, i18n } = useTranslation();
@@ -36,16 +42,42 @@ export function NewRequestPage(): JSX.Element {
   const [bti, setBti] = useState<UploadedItem[]>([]);
   const [design, setDesign] = useState<UploadedItem[]>([]);
   const [comment, setComment] = useState('');
+  const [address, setAddress] = useState('');
+  const [addressTouched, setAddressTouched] = useState(false);
+  const [addressError, setAddressError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const stored = useMemo(() => readEstimate(), []);
   const verified = user?.emailVerified === true;
+
+  /** Профиль нужен только ради контактного адреса; без пользователя не запрашивается. */
+  const profile = useQuery({
+    queryKey: ['auth', 'me'],
+    queryFn: () => authApi.me(),
+    enabled: Boolean(user),
+  });
+
+  // Подстановка контактного адреса — один раз и только пока поле не трогали:
+  // поздний ответ профиля не должен затирать то, что клиент уже напечатал.
+  const contactAddress = profile.data?.address;
+  useEffect(() => {
+    if (addressTouched || !contactAddress) return;
+    setAddress(contactAddress);
+  }, [contactAddress, addressTouched]);
   const totalCount = bti.length + design.length;
   const uploading = [...bti, ...design].some((item) => item.status === 'uploading');
 
   const submit = async (): Promise<void> => {
     if (submitting || uploading || !verified) return;
+    const validAddress = requestAddressSchema.safeParse(address);
+    if (!validAddress.success) {
+      setAddressError(
+        t(validAddress.error.issues[0]?.message ?? 'auth.validation.addressRequired'),
+      );
+      return;
+    }
+    setAddressError(null);
     setError(null);
     setSubmitting(true);
     try {
@@ -66,6 +98,7 @@ export function NewRequestPage(): JSX.Element {
         if (current.token) attachEstimateId(current.token, saved.id);
       }
       const created = await requestsApi.create({
+        address: validAddress.data,
         ...(estimateId ? { quickEstimateId: estimateId } : {}),
         ...(comment.trim() ? { comment: comment.trim() } : {}),
         ...(fileIds.length ? { fileIds } : {}),
@@ -74,7 +107,7 @@ export function NewRequestPage(): JSX.Element {
       // Без сброса кеша кабинет ещё staleTime показывал бы список без только что
       // отправленной заявки — клиент решал бы, что отправка не прошла.
       await queryClient.invalidateQueries({ queryKey: ['requests'] });
-      navigate(`/cabinet?request=${created.id}`, { replace: true });
+      navigate(`/cabinet/requests/${created.id}`, { replace: true });
     } catch (caught) {
       setError(toMessage(caught));
     } finally {
@@ -96,6 +129,28 @@ export function NewRequestPage(): JSX.Element {
             </ButtonLink>
           </Alert>
         ) : null}
+
+        <Section className="mt-8">
+          <Field
+            id="address"
+            label={t('request.new.addressLabel')}
+            hint={t('request.new.addressHint')}
+            error={addressError ?? undefined}
+          >
+            <TextInput
+              id="address"
+              autoComplete="street-address"
+              maxLength={500}
+              value={address}
+              aria-invalid={Boolean(addressError)}
+              aria-describedby={addressError ? 'address-error' : 'address-hint'}
+              onChange={(event) => {
+                setAddressTouched(true);
+                setAddress(event.target.value);
+              }}
+            />
+          </Field>
+        </Section>
 
         <div className="mt-8 grid gap-8">
           <FileUploadSection

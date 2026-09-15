@@ -189,19 +189,17 @@ export function toRateSet(version: RateVersionWithRates): RateSet {
 function toView(estimate: QuickEstimate): QuickEstimateView {
   return {
     id: estimate.id,
-    needsManual: estimate.needsManual,
+    needsManualReview: estimate.needsManual,
     rateVersionId: estimate.rateVersionId,
     amountBase: estimate.amountBase,
     amountMin: estimate.amountMin,
     amountMax: estimate.amountMax,
-    input: {
-      areaSqm: Number(estimate.areaSqm),
-      objectType: estimate.objectType,
-      workScope: estimate.workScope,
-      finishPackage: estimate.finishPackage,
-      condition: estimate.condition,
-      ceilingHeight: estimate.ceilingHeight,
-    },
+    areaSqm: Number(estimate.areaSqm),
+    objectType: estimate.objectType,
+    workScope: estimate.workScope,
+    finishPackage: estimate.finishPackage,
+    condition: estimate.condition,
+    ceilingHeight: estimate.ceilingHeight,
     expiresAt: estimate.expiresAt.toISOString(),
     createdAt: estimate.createdAt.toISOString(),
   };

@@ -91,14 +91,22 @@ export interface RatesResponse {
   validityDays: number;
 }
 
+/**
+ * Сохранённый быстрый расчёт. Параметры лежат плоско, признак ручного
+ * рассмотрения зовётся `needsManualReview` — так же, как в `EstimateResult`
+ * из pricing-core и в ответе `POST /pricing/estimate`.
+ */
 export interface QuickEstimateView {
   id: string;
+  rateVersionId: string;
   areaSqm: number;
   objectType: ObjectType;
   workScope: WorkScope;
   finishPackage: FinishPackage;
   condition: PropertyCondition;
   ceilingHeight: CeilingHeight;
+  /** null при дизайнерском пакете — сумм не существует. */
+  amountBase: number | null;
   amountMin: number | null;
   amountMax: number | null;
   needsManualReview: boolean;
@@ -119,7 +127,8 @@ export interface StatusLogEntry {
   id: string;
   fromStatus: RequestStatus | null;
   toStatus: RequestStatus;
-  actorName: string | null;
+  /** Имя автора перехода приходит не всегда: клиенту сотрудников не показывают. */
+  actorName?: string | null;
   comment: string | null;
   createdAt: string;
 }
@@ -128,6 +137,8 @@ export interface RequestResponse {
   id: string;
   number: number;
   status: RequestStatus;
+  /** Адрес объекта. Принадлежит заявке, а не профилю пользователя. */
+  address: string;
   needsManual: boolean;
   comment: string | null;
   createdAt: string;

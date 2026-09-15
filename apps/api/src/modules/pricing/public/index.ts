@@ -1,19 +1,41 @@
 import type { Locale } from '@db/enums';
-import type { EstimateInput, RateSet } from '@renovateam/pricing-core';
+import type {
+  CeilingHeight,
+  EstimateInput,
+  FinishPackage,
+  ObjectType,
+  PropertyCondition,
+  RateSet,
+  WorkScope,
+} from '@renovateam/pricing-core';
 
 /** DI-токен публичного сервиса модуля pricing. */
 export const PRICING_PUBLIC_SERVICE = 'PRICING_PUBLIC_SERVICE';
 
-/** Сохранённый быстрый расчёт в виде, пригодном для отдачи наружу. */
+/**
+ * Сохранённый быстрый расчёт в виде, пригодном для отдачи наружу.
+ *
+ * Параметры лежат плоско, а признак ручного рассмотрения называется
+ * `needsManualReview` — так же, как в `EstimateResult` из pricing-core и в
+ * ответе `POST /pricing/estimate` (ARCHITECTURE §5.2). Вложенный `input` и
+ * имя `needsManual` были протечкой имён колонок БД наружу: фронт читал
+ * `estimate.areaSqm`, сервер отдавал `estimate.input.areaSqm`, и карточка
+ * сметчика показывала ключи i18n вместо подписей.
+ */
 export interface QuickEstimateView {
   id: string;
-  needsManual: boolean;
+  needsManualReview: boolean;
   rateVersionId: string;
   /** null при дизайнерском пакете — сумм не существует. */
   amountBase: number | null;
   amountMin: number | null;
   amountMax: number | null;
-  input: EstimateInput;
+  areaSqm: number;
+  objectType: ObjectType;
+  workScope: WorkScope;
+  finishPackage: FinishPackage;
+  condition: PropertyCondition;
+  ceilingHeight: CeilingHeight;
   expiresAt: string;
   createdAt: string;
 }
