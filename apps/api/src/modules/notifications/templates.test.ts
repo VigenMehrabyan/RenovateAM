@@ -26,6 +26,22 @@ function events(locale: Locale): NotificationEvent[] {
       requestNumber: 12,
       result: 'ACCEPTED',
     },
+    {
+      type: 'REQUEST_COMMENT',
+      to: 'client@example.com',
+      locale,
+      requestNumber: 12,
+      byStaff: true,
+      comment: 'Пришлите, пожалуйста, поэтажный план',
+    },
+    {
+      type: 'REQUEST_COMMENT',
+      to: 'manager@example.com',
+      locale,
+      requestNumber: 12,
+      byStaff: false,
+      comment: 'План прикладываю',
+    },
   ];
 }
 
@@ -64,6 +80,24 @@ describe('шаблоны писем', () => {
     expect(message.html).toContain('&#39;');
     // Текстовая версия — не разметка, экранировать в ней нечего.
     expect(message.text).toContain(comment);
+  });
+
+  it('текст сообщения из обсуждения попадает в письмо экранированным', () => {
+    const comment = '<b>Срочно</b> & «план БТИ»';
+    const message = renderTemplate({
+      type: 'REQUEST_COMMENT',
+      to: 'client@example.com',
+      locale: 'RU',
+      requestNumber: 12,
+      byStaff: true,
+      comment,
+    });
+
+    expect(message.html).not.toContain('<b>Срочно</b>');
+    expect(message.html).toContain('&lt;b&gt;Срочно&lt;/b&gt;');
+    expect(message.html).toContain('&amp;');
+    expect(message.text).toContain(comment);
+    expect(message.subject).toContain('№12');
   });
 
   it('ссылка не вырывается из атрибута href', () => {

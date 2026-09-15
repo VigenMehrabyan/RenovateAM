@@ -113,7 +113,7 @@ export class RequestsModule {}
 |---|---|---|---|
 | `auth` | Регистрация, вход, JWT, верификация e-mail, роли | `users`, `verification_tokens`, `refresh_tokens` | `notifications` |
 | `pricing` | Ставки, версионирование, движок расчёта, быстрые расчёты | `rate_versions`, `pricing_rates`, `quick_estimates` | — |
-| `requests` | Заявки, статусная машина, журнал, решения клиента, сметы | `requests`, `status_log`, `decisions`, `quotes` | `pricing`, `files`, `notifications`, `auth` |
+| `requests` | Заявки, статусная машина, журнал, решения клиента, сметы, обсуждение | `requests`, `status_log`, `decisions`, `quotes`, `comments`, `comment_files` | `pricing`, `files`, `notifications`, `auth` |
 | `files` | Подписанные ссылки, метаданные файлов, валидация | `files` | `auth` (только гейт верификации) |
 | `notifications` | Отправка писем через Resend, шаблоны, локализация | — (в MVP без своей таблицы) | — |
 | `admin` | Очередь сметчика, загрузка смет, редактор ставок | — (собственных таблиц нет) | `requests`, `pricing`, `files`, `auth` |
@@ -214,7 +214,9 @@ export type NotificationEvent =
   | { type: 'REQUEST_SUBMITTED'; to: string; locale: Locale; requestNumber: number }
   | { type: 'REQUEST_NEEDS_INFO'; to: string; locale: Locale; requestNumber: number; comment: string }
   | { type: 'QUOTE_READY'; to: string; locale: Locale; requestNumber: number }
-  | { type: 'DECISION_MADE'; to: string; locale: Locale; requestNumber: number; result: DecisionResult };
+  | { type: 'DECISION_MADE'; to: string; locale: Locale; requestNumber: number; result: DecisionResult }
+  | { type: 'REQUEST_COMMENT'; to: string; locale: Locale; requestNumber: number;
+      byStaff: boolean; comment: string };
 
 export interface NotificationsPublicService {
   /** Fire-and-forget: ошибка доставки не роняет бизнес-операцию, пишется в лог. */
@@ -340,6 +342,8 @@ PostgreSQL, Prisma. Полная схема — [`apps/api/prisma/schema.prisma`
 | `decisions` | requests | Решение клиента по смете |
 | `files` | files | Файлы клиента (БТИ, дизайн) |
 | `quotes` | requests | PDF-сметы сметчика |
+| `comments` | requests | Сообщения обсуждения внутри заявки |
+| `comment_files` | requests | Вложения сообщений (ссылки на `files`) |
 
 ### 4.1 `users` (auth)
 
@@ -520,6 +524,20 @@ ALTER TABLE decisions ADD CONSTRAINT decisions_other_comment_required
 остаётся тем, кто **загружает** смету: кладёт PDF в хранилище и вызывает
 `registerQuote`.
 
+### 4.11 `comments` и `comment_files` (requests)
+
+`comments`: `id`, `request_id` (FK → requests, cascade), `author_id` (FK → users, **set null**), `author_role` enum UserRole, `text` varchar(4000), `created_at`. Индексы `(request_id, created_at)` — лента заявки, `(author_id, created_at)`.
+
+`comment_files`: `comment_id` (FK → comments, cascade), `file_id` (FK → files, cascade), PK `(comment_id, file_id)`, индекс `(file_id)`.
+
+Обсуждение принадлежит `requests`, а не отдельному модулю: это часть агрегата «заявка», у неё тот же владелец и те же права доступа. Связи с моделью `RequestFile` в `schema.prisma` намеренно нет — внешний ключ задаётся миграцией, а метаданные вложения `requests` получает вызовом `FilesPublicService.listByRequest()`. Иначе чтение чужой таблицы пролезло бы через Prisma-relation мимо правила «одна таблица — один владелец».
+
+`author_role` дублирует `users.role` намеренно. Роль учётной записи меняется (сметчика перевели, сотрудник уволился и учётку отключили), а лента обязана и через год показывать, кто говорил как клиент, а кто как сметчик. При удалении учётной записи `author_id` обнуляется — остаются роль, текст и дата.
+
+**Лента append-only.** Ни `UPDATE`, ни `DELETE` по `comments` в коде нет, эндпоинтов правки и удаления не существует (проверяется тестом). Переписка о деньгах — документ: если клиент и компания разошлись в понимании, лента должна показывать, кто что сказал. Опечатка исправляется следующим сообщением.
+
+Вложения не заводят второго пути загрузки: файл проходит ту же двухфазную схему модуля `files` (§7.1), привязывается к заявке и попадает в общий список её файлов с пометкой `source = DISCUSSION` — искать вложение по ленте клиент не должен.
+
 ---
 
 ## 5. Контракты API
@@ -667,6 +685,27 @@ interface QuickEstimateView {
 ```
 
 ```ts
+// POST /requests/:id/comments — verified; клиент-владелец / staff
+interface CreateCommentDto {
+  text: string;          // ≤4000; может быть пустым, если есть fileIds
+  fileIds?: string[];    // подтверждённые файлы автора, ≤10
+}
+interface CommentView {
+  id: string;
+  author: { id: string | null; name: string | null; role: UserRole }; // роль — снимок
+  text: string;
+  createdAt: string;
+  files: FileMeta[];
+}
+// 201 · 403 FORBIDDEN (чужая заявка) · 409 DISCUSSION_CLOSED (заявка отклонена)
+// 422 VALIDATION_FAILED (пусто либо длиннее 4000)
+//
+// Правки и удаления нет: PATCH и DELETE по сообщению не существуют.
+// Лента приходит в карточке заявки: GET /requests/:id → comments[],
+// туда же попадают файлы сообщений — в files[] с source = 'DISCUSSION'.
+```
+
+```ts
 // POST /requests/:id/decision — verified, только владелец
 interface DecisionDto {
   result: 'ACCEPTED' | 'REJECTED';
@@ -783,6 +822,7 @@ interface UpdateRatesResponse { versionId: string; createdAt: string }
 | `GET /requests/me` | client | Свои заявки |
 | `GET /requests/:id` | client (своя) / staff | Заявка целиком: смета и журнал статусов |
 | `GET /requests/:id/quote/download-url` | client (владелец) / staff | Ссылка на свою смету, 15 мин |
+| `POST /requests/:id/comments` | verified (владелец) / staff | Сообщение в обсуждении заявки |
 | `POST /requests/:id/decision` | verified (владелец) | Принять / отклонить смету |
 | `POST /files/upload-url` | verified | Подписанная ссылка на загрузку |
 | `POST /files/:id/confirm` | verified (владелец) | Подтверждение загрузки (HEAD в R2) |
@@ -939,6 +979,8 @@ const TRANSITIONS: Readonly<Record<RequestStatus, readonly RequestStatus[]>> = {
 
 Отдельно — правило актора: переходы в `ACCEPTED`/`REJECTED` доступны **только клиенту-владельцу** (это его решение, не сметчика), все остальные — только `ESTIMATOR`/`ADMIN`. Клиент не может «взять заявку в работу», сметчик не может принять смету за клиента.
 
+Обсуждение статусной машины не касается: сообщение можно написать в заявке любого статуса, кроме `REJECTED` (там лента только для чтения — `409 DISCUSSION_CLOSED`). Письмо уходит на **каждое** сообщение — требование заказчика; исключение одно: автору его собственного сообщения письма нет. Написал сотрудник — письмо клиенту, написал клиент — на общий ящик `MANAGER_EMAIL` (роли «менеджер» в системе нет, см. §11, вопрос 7).
+
 ### 8.2 Диаграмма
 
 ```mermaid
@@ -1009,7 +1051,7 @@ interface ApiError {
 | 401 | `INVALID_CREDENTIALS`, `ACCESS_TOKEN_EXPIRED`, `REFRESH_INVALID` |
 | 403 | `FORBIDDEN`, `EMAIL_NOT_VERIFIED` |
 | 404 | `NOT_FOUND` |
-| 409 | `EMAIL_ALREADY_REGISTERED`, `DECISION_ALREADY_MADE`, `INVALID_STATUS_TRANSITION`, `TOKEN_ALREADY_USED`, `FILE_LIMIT_REACHED`, `UPLOAD_NOT_FOUND` |
+| 409 | `EMAIL_ALREADY_REGISTERED`, `DECISION_ALREADY_MADE`, `INVALID_STATUS_TRANSITION`, `TOKEN_ALREADY_USED`, `FILE_LIMIT_REACHED`, `UPLOAD_NOT_FOUND`, `DISCUSSION_CLOSED` |
 | 410 | `TOKEN_EXPIRED`, `ESTIMATE_EXPIRED` |
 | 413 | `FILE_TOO_LARGE` |
 | 415 | `UNSUPPORTED_MEDIA_TYPE` |

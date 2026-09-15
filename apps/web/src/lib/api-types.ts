@@ -123,6 +123,29 @@ export interface FileMeta {
   uploadedAt: string | null;
 }
 
+/** Откуда файл взялся в заявке: приложен при отправке или дослан в обсуждении. */
+export type RequestFileSource = 'REQUEST' | 'DISCUSSION';
+
+/** Файл заявки с пометкой происхождения — искать вложение по ленте не нужно. */
+export interface RequestFileMeta extends FileMeta {
+  source: RequestFileSource;
+}
+
+/**
+ * Сообщение обсуждения. Роль автора — снимок на момент написания: сотрудник
+ * мог уволиться или сменить роль, а лента обязана остаться читаемой.
+ */
+export interface CommentView {
+  id: string;
+  author: { id: string | null; name: string | null; role: UserRole };
+  text: string;
+  createdAt: string;
+  files: FileMeta[];
+}
+
+/** Лимит длины сообщения. Тот же предел проверяет сервер. */
+export const MAX_COMMENT_LENGTH = 4000;
+
 export interface StatusLogEntry {
   id: string;
   fromStatus: RequestStatus | null;
@@ -144,7 +167,7 @@ export interface RequestResponse {
   createdAt: string;
   updatedAt: string;
   estimate: QuickEstimateView | null;
-  files: FileMeta[];
+  files: RequestFileMeta[];
   quote: { id: string; totalAmount: number; createdAt: string } | null;
   decision: {
     result: DecisionResult;
@@ -153,6 +176,8 @@ export interface RequestResponse {
     createdAt: string;
   } | null;
   statusLog?: StatusLogEntry[];
+  /** Лента обсуждения. Приходит в карточке заявки — и клиенту, и сотруднику. */
+  comments?: CommentView[];
   client?: AdminClient;
 }
 

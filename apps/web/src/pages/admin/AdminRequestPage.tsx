@@ -17,6 +17,7 @@ import {
   TextInput,
 } from '@/components/ui';
 import { isStaff, useAuth } from '@/features/auth/auth-context';
+import { DiscussionPanel } from '@/features/discussion/DiscussionPanel';
 import { adminApi, filesApi } from '@/lib/api';
 import { openSignedUrl } from '@/lib/download';
 import { STAFF_TRANSITIONS } from '@/lib/api-types';
@@ -49,29 +50,41 @@ export function AdminRequestPage(): JSX.Element {
   }
   if (!data) return <Alert tone="danger">{t('errors.NOT_FOUND')}</Alert>;
 
+  /**
+   * Порядок блоков рабочей колонки задаётся `order`, а не разметкой.
+   * На широком экране лента обсуждения идёт первой — сметчик отвечает оттуда
+   * же, где читает. На узком она уходит вниз: сначала параметры и смета,
+   * ради которых карточку и открывают, потом переписка.
+   */
   return (
     <Page dense className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
-      <div>
-        <Link
-          to="/admin"
-          className="touch-target inline-flex items-center text-sm text-accent-600 underline"
-        >
-          {t('admin.request.back')}
-        </Link>
-        <div className="mt-2 flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-semibold">
-            {t('admin.request.title', { number: data.number })}
-          </h1>
-          <StatusBadge status={data.status} label={t(`request.status.${data.status}`)} />
+      <div className="flex min-w-0 flex-col gap-8">
+        <div className="lg:order-1">
+          <Link
+            to="/admin"
+            className="touch-target inline-flex items-center text-sm text-accent-600 underline"
+          >
+            {t('admin.request.back')}
+          </Link>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-semibold">
+              {t('admin.request.title', { number: data.number })}
+            </h1>
+            <StatusBadge status={data.status} label={t(`request.status.${data.status}`)} />
+          </div>
+
+          {data.comment ? (
+            <Alert tone="info" className="mt-4">
+              {data.comment}
+            </Alert>
+          ) : null}
         </div>
 
-        {data.comment ? (
-          <Alert tone="info" className="mt-4">
-            {data.comment}
-          </Alert>
-        ) : null}
+        <div className="order-last lg:order-2">
+          <DiscussionPanel request={data} queryKey={['admin', 'request', id]} />
+        </div>
 
-        <Section title={t('admin.request.paramsTitle')} className="mt-8">
+        <Section title={t('admin.request.paramsTitle')} className="lg:order-3">
           {data.estimate ? (
             <dl className="surface p-4">
               <DataRow label={t('cabinet.addressLabel')} value={data.address} />
@@ -130,7 +143,7 @@ export function AdminRequestPage(): JSX.Element {
           )}
         </Section>
 
-        <Section title={t('admin.request.filesTitle')} className="mt-8">
+        <Section title={t('admin.request.filesTitle')} className="lg:order-4">
           <ul className="divide-y divide-ink-200 border-y border-ink-200">
             {data.files.length === 0 ? (
               <li className="py-2 text-sm text-ink-500">{t('request.files.empty')}</li>
@@ -139,10 +152,13 @@ export function AdminRequestPage(): JSX.Element {
               <li key={file.id} className="flex items-center justify-between gap-3 py-2">
                 <span className="min-w-0">
                   <span className="user-text block text-sm">{file.originalName}</span>
+                  {/* Файл из переписки помечен: сметчик не ищет его по ленте. */}
                   <span className="text-xs text-ink-500">
-                    {file.kind === 'BTI'
-                      ? t('request.files.btiTitle')
-                      : t('request.files.designTitle')}
+                    {file.source === 'DISCUSSION'
+                      ? t('cabinet.fileSource.DISCUSSION')
+                      : file.kind === 'BTI'
+                        ? t('request.files.btiTitle')
+                        : t('request.files.designTitle')}
                   </span>
                 </span>
                 <FileDownload fileId={file.id} />
@@ -151,11 +167,15 @@ export function AdminRequestPage(): JSX.Element {
           </ul>
         </Section>
 
-        <QuoteUpload request={data} />
-        <StatusChange request={data} />
+        <div className="lg:order-5">
+          <QuoteUpload request={data} />
+        </div>
+        <div className="lg:order-6">
+          <StatusChange request={data} />
+        </div>
 
         {data.decision ? (
-          <Section title={t('admin.request.decisionTitle')} className="mt-8">
+          <Section title={t('admin.request.decisionTitle')} className="lg:order-7">
             <Alert tone={data.decision.result === 'ACCEPTED' ? 'success' : 'danger'}>
               <p>{t(`request.status.${data.decision.result}`)}</p>
               {data.decision.reason ? (
@@ -278,7 +298,7 @@ function QuoteUpload({ request }: { request: RequestResponse }): JSX.Element {
   };
 
   return (
-    <Section title={t('admin.request.quoteTitle')} className="mt-8">
+    <Section title={t('admin.request.quoteTitle')}>
       {request.quote ? (
         <dl className="surface mb-4 p-4">
           <DataRow
@@ -345,7 +365,7 @@ function StatusChange({ request }: { request: RequestResponse }): JSX.Element {
 
   if (available.length === 0) {
     return (
-      <Section title={t('admin.request.statusTitle')} className="mt-8">
+      <Section title={t('admin.request.statusTitle')}>
         <p className="text-sm text-ink-500">{t('admin.request.noTransitions')}</p>
       </Section>
     );
@@ -362,7 +382,7 @@ function StatusChange({ request }: { request: RequestResponse }): JSX.Element {
   };
 
   return (
-    <Section title={t('admin.request.statusTitle')} className="mt-8">
+    <Section title={t('admin.request.statusTitle')}>
       <div className="grid max-w-md gap-4">
         <Field id="status-target" label={t('admin.request.statusTarget')}>
           <Select

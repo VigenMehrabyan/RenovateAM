@@ -16,6 +16,8 @@ export const DATABASE_AVAILABLE = Boolean(
 );
 
 const TABLES = [
+  'comment_files',
+  'comments',
   'status_log',
   'decisions',
   'quotes',

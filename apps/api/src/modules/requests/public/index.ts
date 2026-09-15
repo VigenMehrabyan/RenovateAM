@@ -17,6 +17,44 @@ export interface RequestQuoteWithKey extends RequestQuoteView {
   fileKey: string;
 }
 
+/** Откуда в заявке взялся файл. */
+export type RequestFileSource =
+  /** Приложен к самой заявке при отправке. */
+  | 'REQUEST'
+  /** Дослан сообщением в обсуждении. */
+  | 'DISCUSSION';
+
+/**
+ * Файл заявки с пометкой происхождения. Файлы из переписки попадают в общий
+ * список файлов заявки: искать вложение по ленте клиент не должен.
+ */
+export interface RequestFileView extends FileMeta {
+  source: RequestFileSource;
+}
+
+/**
+ * Автор сообщения. Роль — снимок на момент написания, а не текущая роль
+ * учётной записи: сотрудник может уволиться или сменить роль, а лента
+ * обязана остаться читаемой.
+ */
+export interface CommentAuthorView {
+  /** null, если учётная запись удалена. */
+  id: string | null;
+  /** null, если учётной записи больше нет: остаётся роль и дата. */
+  name: string | null;
+  role: UserRole;
+}
+
+/** Сообщение обсуждения. Неизменяемо: правок и удалений нет. */
+export interface CommentView {
+  id: string;
+  author: CommentAuthorView;
+  text: string;
+  createdAt: string;
+  /** Вложения сообщения. Они же видны в общем списке файлов заявки. */
+  files: FileMeta[];
+}
+
 export interface RequestDecisionView {
   result: DecisionResult;
   reason: RejectionReason | null;
@@ -36,7 +74,7 @@ export interface RequestView {
   createdAt: string;
   updatedAt: string;
   estimate: QuickEstimateView | null;
-  files: FileMeta[];
+  files: RequestFileView[];
   /** Актуальная смета. Клиент видит её у себя, а не только сметчик в админке. */
   quote: RequestQuoteView | null;
   decision: RequestDecisionView | null;
@@ -51,9 +89,11 @@ export interface StatusLogView {
   createdAt: string;
 }
 
-/** Карточка заявки: всё то же плюс журнал статусов. */
+/** Карточка заявки: всё то же плюс журнал статусов и лента обсуждения. */
 export interface RequestDetailView extends RequestView {
   statusLog: StatusLogView[];
+  /** Обсуждение по заявке, от старых сообщений к новым. */
+  comments: CommentView[];
 }
 
 /** Команда смены статуса — единственная точка перехода в системе. */

@@ -23,6 +23,8 @@ export const ErrorCode = {
   FILE_LIMIT_REACHED: 'FILE_LIMIT_REACHED',
   UPLOAD_NOT_FOUND: 'UPLOAD_NOT_FOUND',
   ALREADY_VERIFIED: 'ALREADY_VERIFIED',
+  /** Заявка отклонена: лента обсуждения остаётся, но только для чтения. */
+  DISCUSSION_CLOSED: 'DISCUSSION_CLOSED',
   // 410
   TOKEN_EXPIRED: 'TOKEN_EXPIRED',
   ESTIMATE_EXPIRED: 'ESTIMATE_EXPIRED',

@@ -1,13 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@common/prisma/prisma.service';
-import { RequestStatus } from '@db/enums';
-import type { Decision, Prisma, Quote, Request, StatusLogEntry } from '@db';
+import { RequestStatus, UserRole } from '@db/enums';
+import type { Comment, Decision, Prisma, Quote, Request, StatusLogEntry } from '@db';
 
 export type RequestWithDecision = Request & { decision: Decision | null };
 
+/** Связь «сообщение — вложение» вместе с заявкой, которой оно принадлежит. */
+export interface CommentFileLink {
+  commentId: string;
+  fileId: string;
+  requestId: string;
+}
+
 /**
  * Приватный репозиторий модуля requests. Владеет таблицами
- * requests, status_log, decisions, quotes.
+ * requests, status_log, decisions, quotes, comments, comment_files.
  */
 @Injectable()
 export class RequestsRepository {
@@ -192,5 +199,64 @@ export class RequestsRepository {
     return this.prisma.quote.findMany({
       where: { requestId: { in: requestIds }, isCurrent: true },
     });
+  }
+
+  // --- обсуждение ----------------------------------------------------------
+
+  /**
+   * Сообщение вместе со ссылками на вложения — одной транзакцией: сообщение
+   * без своих файлов в ленте выглядит как потерянный чертёж.
+   *
+   * Метода изменения и удаления здесь нет намеренно: лента append-only.
+   */
+  async createComment(params: {
+    requestId: string;
+    authorId: string;
+    authorRole: UserRole;
+    text: string;
+    fileIds: string[];
+  }): Promise<Comment> {
+    return this.prisma.$transaction(async (tx) => {
+      const comment = await tx.comment.create({
+        data: {
+          requestId: params.requestId,
+          authorId: params.authorId,
+          authorRole: params.authorRole,
+          text: params.text,
+        },
+      });
+      if (params.fileIds.length > 0) {
+        await tx.commentFile.createMany({
+          data: params.fileIds.map((fileId) => ({ commentId: comment.id, fileId })),
+          skipDuplicates: true,
+        });
+      }
+      return comment;
+    });
+  }
+
+  /** Лента заявки: от старых сообщений к новым. */
+  async listComments(requestId: string): Promise<Comment[]> {
+    return this.prisma.comment.findMany({
+      where: { requestId },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  /**
+   * Связи «сообщение — вложение» для набора заявок. Одним запросом: нужен
+   * и списку кабинета (пометка «из переписки» у файлов), и карточке.
+   */
+  async listCommentFileLinks(requestIds: string[]): Promise<CommentFileLink[]> {
+    if (requestIds.length === 0) return [];
+    const rows = await this.prisma.commentFile.findMany({
+      where: { comment: { requestId: { in: requestIds } } },
+      select: { commentId: true, fileId: true, comment: { select: { requestId: true } } },
+    });
+    return rows.map((row) => ({
+      commentId: row.commentId,
+      fileId: row.fileId,
+      requestId: row.comment.requestId,
+    }));
   }
 }

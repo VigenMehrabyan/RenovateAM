@@ -19,6 +19,20 @@ export type NotificationEvent =
       comment: string;
     }
   | { type: 'QUOTE_READY'; to: string; locale: Locale; requestNumber: number }
+  /**
+   * Новое сообщение в обсуждении заявки. Письмо уходит на КАЖДОЕ сообщение —
+   * так решил заказчик; исключение одно: автору его собственного сообщения
+   * письма нет. `byStaff` выбирает адресата и формулировку: написал
+   * сотрудник — пишем клиенту, написал клиент — пишем на общий ящик.
+   */
+  | {
+      type: 'REQUEST_COMMENT';
+      to: string;
+      locale: Locale;
+      requestNumber: number;
+      byStaff: boolean;
+      comment: string;
+    }
   | {
       type: 'DECISION_MADE';
       to: string;

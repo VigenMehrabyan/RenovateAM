@@ -1,15 +1,21 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { CONFIG, type AppConfig } from '@config';
 import { AppException } from '@common/errors/app.exception';
 import { ErrorCode } from '@common/errors/error-codes';
-import { DecisionResult, RejectionReason, RequestStatus, UserRole } from '@db/enums';
-import type { Quote } from '@db';
+import { DecisionResult, Locale, RejectionReason, RequestStatus, UserRole } from '@db/enums';
+import type { Comment, Quote } from '@db';
 import { AUTH_PUBLIC_SERVICE, type AuthPublicService } from '@modules/auth/public';
-import { FILES_PUBLIC_SERVICE, type FilesPublicService } from '@modules/files/public';
+import {
+  FILES_PUBLIC_SERVICE,
+  type FileMeta,
+  type FilesPublicService,
+} from '@modules/files/public';
 import {
   NOTIFICATIONS_PUBLIC_SERVICE,
   type NotificationsPublicService,
 } from '@modules/notifications/public';
 import { PRICING_PUBLIC_SERVICE, type PricingPublicService } from '@modules/pricing/public';
+import type { CreateCommentDto } from './dto/create-comment.dto';
 import type { CreateRequestDto } from './dto/create-request.dto';
 import type { DecisionDto } from './dto/decision.dto';
 import { RequestsRepository, type RequestWithDecision } from './requests.repository';
@@ -20,7 +26,9 @@ import {
   TERMINAL_STATUSES,
 } from './status-machine';
 import type {
+  CommentView,
   RequestDetailView,
+  RequestFileView,
   RequestQuoteView,
   RequestQuoteWithKey,
   RequestsPublicService,
@@ -54,6 +62,7 @@ export class RequestsService implements RequestsPublicService {
     @Inject(AUTH_PUBLIC_SERVICE) private readonly auth: AuthPublicService,
     @Inject(NOTIFICATIONS_PUBLIC_SERVICE)
     private readonly notifications: NotificationsPublicService,
+    @Inject(CONFIG) private readonly config: AppConfig,
   ) {}
 
   // --- создание ------------------------------------------------------------
@@ -189,6 +198,166 @@ export class RequestsService implements RequestsPublicService {
       actorId: entry.actorId,
       comment: entry.comment,
       createdAt: entry.createdAt.toISOString(),
+    }));
+  }
+
+  // --- обсуждение ----------------------------------------------------------
+
+  /**
+   * Новое сообщение в обсуждении заявки.
+   *
+   * Обсуждение существует ради одного: чтобы сметчик спросил, а клиент дослал
+   * недостающее, не поднимая трубку. Поэтому писать может и клиент в своей
+   * заявке, и сотрудник в любой, а право проверяется здесь, на каждом запросе,
+   * а не скрытием кнопки в интерфейсе.
+   *
+   * Правки и удаления нет: переписка о деньгах — документ. Опечатка
+   * исправляется следующим сообщением.
+   */
+  async addComment(
+    requestId: string,
+    actor: { id: string; role: UserRole },
+    dto: CreateCommentDto,
+  ): Promise<CommentView> {
+    const request = await this.repository.findById(requestId);
+    if (!request) throw new AppException(404, ErrorCode.NOT_FOUND, 'Request not found');
+    if (!isStaffRole(actor.role) && request.userId !== actor.id) {
+      throw new AppException(403, ErrorCode.FORBIDDEN, 'Request belongs to another user');
+    }
+    // Лента отклонённой заявки остаётся читаемой, но дописывать в неё нечего:
+    // решение необратимо, обсуждать больше нечего.
+    if (request.status === RequestStatus.REJECTED) {
+      throw new AppException(
+        409,
+        ErrorCode.DISCUSSION_CLOSED,
+        'Discussion is read-only for a rejected request',
+      );
+    }
+
+    const text = dto.text.trim();
+    const fileIds = dto.fileIds ?? [];
+    if (text.length === 0 && fileIds.length === 0) {
+      throw new AppException(422, ErrorCode.VALIDATION_FAILED, 'Message must carry text or files', {
+        details: [{ field: 'text', code: 'REQUIRED' }],
+      });
+    }
+
+    // Вложения привязываются к заявке ДО создания сообщения: файл, о котором
+    // сообщение говорит, обязан уже лежать в заявке, а не появиться позже.
+    const attachedIds = await this.attachCommentFiles(fileIds, request.id, actor.id);
+
+    const comment = await this.repository.createComment({
+      requestId: request.id,
+      authorId: actor.id,
+      // Роль пишется в саму запись: учётную запись могут отключить или
+      // перевести, а лента обязана остаться читаемой.
+      authorRole: actor.role,
+      text,
+      fileIds: attachedIds,
+    });
+
+    const author = await this.auth.getUserById(actor.id);
+    await this.notifyComment(request, comment, author?.email ?? null);
+    this.logger.log(
+      `event=request_comment_added request=${request.id} role=${actor.role} files=${attachedIds.length}`,
+    );
+
+    const files = (await this.files.listByRequest(request.id)).filter((file) =>
+      attachedIds.includes(file.id),
+    );
+    return {
+      id: comment.id,
+      author: { id: actor.id, name: author?.fullName ?? null, role: comment.authorRole },
+      text: comment.text,
+      createdAt: comment.createdAt.toISOString(),
+      files,
+    };
+  }
+
+  /**
+   * Привязка вложений к заявке через модуль files: второго пути загрузки нет,
+   * работает та же двухфазная схема с подписанными ссылками.
+   *
+   * Возвращает только те файлы, которые действительно оказались в заявке:
+   * чужие и неподтверждённые модуль files молча отсеивает.
+   */
+  private async attachCommentFiles(
+    fileIds: string[],
+    requestId: string,
+    userId: string,
+  ): Promise<string[]> {
+    if (fileIds.length === 0) return [];
+    const files = await this.files.attachToRequest(fileIds, requestId, userId);
+    return files.filter((file) => fileIds.includes(file.id)).map((file) => file.id);
+  }
+
+  /**
+   * Письмо на каждое новое сообщение — требование заказчика. Исключение
+   * ровно одно: автору его собственного сообщения письма не уходит.
+   *
+   * Написал сотрудник — пишем клиенту; написал клиент — на общий ящик
+   * `MANAGER_EMAIL` (роли «менеджер» в системе нет, ARCHITECTURE §11, вопрос 7).
+   */
+  private async notifyComment(
+    request: RequestWithDecision,
+    comment: Comment,
+    authorEmail: string | null,
+  ): Promise<void> {
+    const byStaff = isStaffRole(comment.authorRole);
+    const owner = await this.auth.getUserById(request.userId);
+    const to = byStaff ? (owner?.email ?? null) : this.config.mail.managerEmail || null;
+    if (!to) {
+      this.logger.warn(`сообщение по заявке ${request.id}: некому отправить письмо`);
+      return;
+    }
+    if (authorEmail && to.toLowerCase() === authorEmail.toLowerCase()) return;
+
+    await this.notifications.send({
+      type: 'REQUEST_COMMENT',
+      to,
+      // У общего ящика профиля нет — язык компании по умолчанию.
+      locale: byStaff ? (owner?.locale ?? Locale.RU) : Locale.RU,
+      requestNumber: request.number,
+      byStaff,
+      comment: comment.text,
+    });
+  }
+
+  /** Лента заявки. Метаданные вложений берутся из уже собранного списка файлов. */
+  private async buildComments(requestId: string, files: RequestFileView[]): Promise<CommentView[]> {
+    const [rows, links] = await Promise.all([
+      this.repository.listComments(requestId),
+      this.repository.listCommentFileLinks([requestId]),
+    ]);
+    if (rows.length === 0) return [];
+
+    const authorIds = [
+      ...new Set(rows.map((row) => row.authorId).filter((id): id is string => id !== null)),
+    ];
+    const authors = new Map(
+      (await this.auth.getUsersByIds(authorIds)).map((user) => [user.id, user]),
+    );
+    const metaByFileId = new Map(files.map((file) => [file.id, file]));
+    const filesByComment = new Map<string, FileMeta[]>();
+    for (const link of links) {
+      const meta = metaByFileId.get(link.fileId);
+      if (!meta) continue;
+      const bucket = filesByComment.get(link.commentId) ?? [];
+      bucket.push(meta);
+      filesByComment.set(link.commentId, bucket);
+    }
+
+    return rows.map((row) => ({
+      id: row.id,
+      author: {
+        id: row.authorId,
+        name: row.authorId ? (authors.get(row.authorId)?.fullName ?? null) : null,
+        // Роль — из самой записи, а не из профиля: она могла смениться.
+        role: row.authorRole,
+      },
+      text: row.text,
+      createdAt: row.createdAt.toISOString(),
+      files: filesByComment.get(row.id) ?? [],
     }));
   }
 
@@ -408,30 +577,42 @@ export class RequestsService implements RequestsPublicService {
   }
 
   private async toDetailView(request: RequestWithDecision): Promise<RequestDetailView> {
-    const [view, statusLog] = await Promise.all([
-      this.toView(request),
+    const view = await this.toView(request);
+    const [statusLog, comments] = await Promise.all([
       this.getStatusLog(request.id),
+      this.buildComments(request.id, view.files),
     ]);
-    return { ...view, statusLog };
+    return { ...view, statusLog, comments };
   }
 
   private async toView(request: RequestWithDecision): Promise<RequestView> {
-    const quote = await this.repository.findCurrentQuote(request.id);
-    return this.composeView(request, quote);
+    const [quote, links] = await Promise.all([
+      this.repository.findCurrentQuote(request.id),
+      this.repository.listCommentFileLinks([request.id]),
+    ]);
+    return this.composeView(request, quote, new Set(links.map((link) => link.fileId)));
   }
 
-  /** Список: сметы читаются одним запросом, а не по одному на строку. */
+  /** Список: сметы и вложения переписки читаются одним запросом на весь список. */
   private async toViews(requests: RequestWithDecision[]): Promise<RequestView[]> {
-    const quotes = await this.repository.findCurrentQuotes(requests.map((item) => item.id));
+    const ids = requests.map((item) => item.id);
+    const [quotes, links] = await Promise.all([
+      this.repository.findCurrentQuotes(ids),
+      this.repository.listCommentFileLinks(ids),
+    ]);
     const byRequestId = new Map(quotes.map((quote) => [quote.requestId, quote]));
+    const discussionFileIds = new Set(links.map((link) => link.fileId));
     return Promise.all(
-      requests.map((request) => this.composeView(request, byRequestId.get(request.id) ?? null)),
+      requests.map((request) =>
+        this.composeView(request, byRequestId.get(request.id) ?? null, discussionFileIds),
+      ),
     );
   }
 
   private async composeView(
     request: RequestWithDecision,
     quote: Quote | null,
+    discussionFileIds: ReadonlySet<string>,
   ): Promise<RequestView> {
     const [estimate, files] = await Promise.all([
       request.quickEstimateId ? this.pricing.getQuickEstimate(request.quickEstimateId) : null,
@@ -449,7 +630,12 @@ export class RequestsService implements RequestsPublicService {
       createdAt: request.createdAt.toISOString(),
       updatedAt: request.updatedAt.toISOString(),
       estimate,
-      files,
+      // Файл из переписки попадает в общий список файлов заявки с пометкой,
+      // откуда он: искать вложение по ленте клиент не должен.
+      files: files.map((file) => ({
+        ...file,
+        source: discussionFileIds.has(file.id) ? ('DISCUSSION' as const) : ('REQUEST' as const),
+      })),
       quote: quote ? toQuoteView(quote) : null,
       decision: request.decision
         ? {

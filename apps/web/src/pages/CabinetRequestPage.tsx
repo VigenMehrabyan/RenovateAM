@@ -18,6 +18,7 @@ import {
   TextArea,
 } from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
+import { DiscussionPanel } from '@/features/discussion/DiscussionPanel';
 import { filesApi, requestsApi } from '@/lib/api';
 import { openSignedUrl } from '@/lib/download';
 import { REJECTION_REASONS } from '@/lib/api-types';
@@ -71,15 +72,29 @@ export function CabinetRequestPage(): JSX.Element {
     );
   }
 
+  /**
+   * Раскладка карточки: обсуждение слева, параметры и смета справа.
+   *
+   * На узком экране колонки схлопываются в одну, и порядок меняется:
+   * сначала статус и смета (за ними человек и пришёл), затем обсуждение.
+   * Поэтому правая колонка идёт в разметке первой, а `order` возвращает её
+   * направо только на широком экране.
+   */
   return (
-    <Page dense className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
-      <div>
+    <Page dense className="grid gap-x-8 gap-y-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+      <header className="lg:col-span-2">
         <BackLink />
+        <RequestHeader request={data} locale={i18n.language} />
+      </header>
+
+      <aside className="space-y-6 lg:order-2">
         <RequestPanel request={data} locale={i18n.language} />
-      </div>
-      <aside>
         <StatusHistory request={data} locale={i18n.language} />
       </aside>
+
+      <div className="min-w-0 lg:order-1">
+        <DiscussionPanel request={data} queryKey={['requests', id]} />
+      </div>
     </Page>
   );
 }
@@ -96,7 +111,8 @@ function BackLink(): JSX.Element {
   );
 }
 
-function RequestPanel({
+/** Шапка карточки: адрес объекта, статус и комментарий сметчика. */
+function RequestHeader({
   request,
   locale,
 }: {
@@ -124,9 +140,24 @@ function RequestPanel({
           {request.comment}
         </Alert>
       ) : null}
+    </div>
+  );
+}
 
+/** Правая колонка: параметры расчёта, смета, решение и файлы заявки. */
+function RequestPanel({
+  request,
+  locale,
+}: {
+  request: RequestResponse;
+  locale: string;
+}): JSX.Element {
+  const { t } = useTranslation();
+
+  return (
+    <div className="space-y-6">
       {request.estimate ? (
-        <Section title={t('cabinet.paramsTitle')} className="mt-8">
+        <Section title={t('cabinet.paramsTitle')}>
           <dl className="surface p-4">
             <DataRow
               label={t('calculator.area')}
@@ -176,12 +207,12 @@ function RequestPanel({
           </dl>
         </Section>
       ) : (
-        <Section title={t('cabinet.paramsTitle')} className="mt-8">
+        <Section title={t('cabinet.paramsTitle')}>
           <p className="text-sm text-ink-500">{t('request.new.noEstimate')}</p>
         </Section>
       )}
 
-      <Section title={t('cabinet.quoteTitle')} className="mt-8">
+      <Section title={t('cabinet.quoteTitle')}>
         {request.quote ? (
           <div className="surface p-4">
             <dl>
@@ -208,7 +239,6 @@ function RequestPanel({
       {request.decision ? (
         <Alert
           tone={request.decision.result === 'ACCEPTED' ? 'success' : 'danger'}
-          className="mt-6"
           title={t('cabinet.decision.title')}
         >
           <p>
@@ -229,11 +259,17 @@ function RequestPanel({
       ) : null}
 
       {request.files.length > 0 ? (
-        <Section title={t('cabinet.filesTitle')} className="mt-8">
+        <Section title={t('cabinet.filesTitle')}>
           <ul className="divide-y divide-ink-200 border-y border-ink-200">
             {request.files.map((file) => (
               <li key={file.id} className="flex items-center justify-between gap-3 py-2">
-                <span className="user-text min-w-0 text-sm">{file.originalName}</span>
+                <span className="min-w-0">
+                  <span className="user-text block text-sm">{file.originalName}</span>
+                  {/* Файл из переписки помечен: искать его по ленте не нужно. */}
+                  <span className="block text-xs text-ink-500">
+                    {t(`cabinet.fileSource.${file.source}`)}
+                  </span>
+                </span>
                 <FileDownload fileId={file.id} />
               </li>
             ))}
@@ -350,7 +386,7 @@ function DecisionForm({ requestId }: { requestId: string }): JSX.Element {
   });
 
   return (
-    <Section title={t('cabinet.decision.title')} className="mt-8">
+    <Section title={t('cabinet.decision.title')}>
       <p className="text-sm text-ink-600">{t('cabinet.decision.irreversible')}</p>
 
       {error ? (
