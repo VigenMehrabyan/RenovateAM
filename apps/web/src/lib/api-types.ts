@@ -91,14 +91,22 @@ export interface RatesResponse {
   validityDays: number;
 }
 
+/**
+ * Сохранённый быстрый расчёт. Параметры лежат плоско, признак ручного
+ * рассмотрения зовётся `needsManualReview` — так же, как в `EstimateResult`
+ * из pricing-core и в ответе `POST /pricing/estimate`.
+ */
 export interface QuickEstimateView {
   id: string;
+  rateVersionId: string;
   areaSqm: number;
   objectType: ObjectType;
   workScope: WorkScope;
   finishPackage: FinishPackage;
   condition: PropertyCondition;
   ceilingHeight: CeilingHeight;
+  /** null при дизайнерском пакете — сумм не существует. */
+  amountBase: number | null;
   amountMin: number | null;
   amountMax: number | null;
   needsManualReview: boolean;
@@ -115,11 +123,35 @@ export interface FileMeta {
   uploadedAt: string | null;
 }
 
+/** Откуда файл взялся в заявке: приложен при отправке или дослан в обсуждении. */
+export type RequestFileSource = 'REQUEST' | 'DISCUSSION';
+
+/** Файл заявки с пометкой происхождения — искать вложение по ленте не нужно. */
+export interface RequestFileMeta extends FileMeta {
+  source: RequestFileSource;
+}
+
+/**
+ * Сообщение обсуждения. Роль автора — снимок на момент написания: сотрудник
+ * мог уволиться или сменить роль, а лента обязана остаться читаемой.
+ */
+export interface CommentView {
+  id: string;
+  author: { id: string | null; name: string | null; role: UserRole };
+  text: string;
+  createdAt: string;
+  files: FileMeta[];
+}
+
+/** Лимит длины сообщения. Тот же предел проверяет сервер. */
+export const MAX_COMMENT_LENGTH = 4000;
+
 export interface StatusLogEntry {
   id: string;
   fromStatus: RequestStatus | null;
   toStatus: RequestStatus;
-  actorName: string | null;
+  /** Имя автора перехода приходит не всегда: клиенту сотрудников не показывают. */
+  actorName?: string | null;
   comment: string | null;
   createdAt: string;
 }
@@ -128,12 +160,14 @@ export interface RequestResponse {
   id: string;
   number: number;
   status: RequestStatus;
+  /** Адрес объекта. Принадлежит заявке, а не профилю пользователя. */
+  address: string;
   needsManual: boolean;
   comment: string | null;
   createdAt: string;
   updatedAt: string;
   estimate: QuickEstimateView | null;
-  files: FileMeta[];
+  files: RequestFileMeta[];
   quote: { id: string; totalAmount: number; createdAt: string } | null;
   decision: {
     result: DecisionResult;
@@ -142,6 +176,8 @@ export interface RequestResponse {
     createdAt: string;
   } | null;
   statusLog?: StatusLogEntry[];
+  /** Лента обсуждения. Приходит в карточке заявки — и клиенту, и сотруднику. */
+  comments?: CommentView[];
   client?: AdminClient;
 }
 

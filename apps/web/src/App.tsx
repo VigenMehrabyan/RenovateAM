@@ -4,6 +4,7 @@ import { Layout } from '@/components/Layout';
 import { Page, PageTitle } from '@/components/ui';
 import { RequireAuth, RequireStaff } from '@/components/guards';
 import { CabinetPage } from '@/pages/CabinetPage';
+import { CabinetRequestPage } from '@/pages/CabinetRequestPage';
 import { EstimatePage } from '@/pages/EstimatePage';
 import { LandingPage } from '@/pages/LandingPage';
 import { LoginPage } from '@/pages/LoginPage';
@@ -39,6 +40,7 @@ export function App(): JSX.Element {
 
         <Route element={<RequireAuth />}>
           <Route path="/cabinet" element={<CabinetPage />} />
+          <Route path="/cabinet/requests/:id" element={<CabinetRequestPage />} />
           <Route path="/requests/new" element={<NewRequestPage />} />
         </Route>
 

@@ -55,7 +55,7 @@ export class PricingController {
     );
 
     // Дизайнерский пакет: ни одного числового поля в ответе.
-    if (view.needsManual) {
+    if (view.needsManualReview) {
       return {
         id: view.id,
         needsManualReview: true as const,

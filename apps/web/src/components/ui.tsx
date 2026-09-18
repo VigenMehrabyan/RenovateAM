@@ -3,9 +3,11 @@
  * изумрудный акцент фирменного стиля, шампань — только в логотипе, семантика
  * статусов вынесена отдельными цветами и с акцентом не смешивается.
  */
-import { forwardRef, useCallback, useEffect, useRef, useState } from 'react';
+import { forwardRef, useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type {
   ButtonHTMLAttributes,
+  ChangeEvent,
   InputHTMLAttributes,
   ReactNode,
   SelectHTMLAttributes,
@@ -175,28 +177,45 @@ function supportsCustomizableSelect(): boolean {
     : false;
 }
 
+/** Подпись выбранного варианта — ровно та строка, которую React только что отрисовал. */
+function selectedLabelOf(node: HTMLSelectElement | null): string {
+  return node?.selectedOptions[0]?.textContent?.trim() ?? '';
+}
+
 /**
  * Список выбора.
  *
- * `<button><selectedcontent>` — штатная разметка настраиваемого списка (Open
- * UI): только в ней закрытое состояние — обычный элемент, которому можно
- * задать `text-overflow: ellipsis`; кнопку, которую браузер рисует сам,
+ * В браузере с настраиваемым списком (Open UI, `appearance: base-select`)
+ * закрытое состояние рисует первый дочерний `<button>`: только ему можно
+ * задать `text-overflow: ellipsis`, кнопку, которую браузер рисует сам,
  * селектором не достать. Без этого длинная армянская подпись
  * «Ամբողջական վերանորոգում» переносилась на вторую строку, поле становилось
  * на 24 px выше соседнего в ряду, и сетка калькулятора съезжала.
  *
- * Узлы добавляются из эффекта и только там, где `base-select` поддержан:
- * в остальных браузерах разметка не нужна, а React о таком вложении не знает
- * и на каждый список писал бы в консоль предупреждение. Список `<option>`
- * остаётся за React — кнопка встаёт перед ним и на согласование не влияет.
+ * Содержимое кнопки — наш собственный узел, а не `<selectedcontent>`.
+ * `<selectedcontent>` браузер наполняет копией выбранного `<option>` сам и
+ * обновляет её при смене выбора, но не при смене текста самого варианта:
+ * на переключении языка React меняет подписи `<option>`, выбор остаётся
+ * прежним, и в закрытом поле оставалась подпись прошлой локали до
+ * перезагрузки. Подпись здесь берётся из выбранного `<option>` после каждого
+ * коммита — то есть из того же дерева и той же отрисовки, что и сам список
+ * вариантов, — и оттуда же идёт в `title`. Разойтись с локалью ей негде:
+ * ничьего чужого обновления она не ждёт.
+ *
+ * Сама кнопка создаётся вручную и только там, где `base-select` поддержан:
+ * в остальных браузерах она не нужна, а React о таком вложении не знает и на
+ * каждый список писал бы в консоль предупреждение. Наполняет её портал —
+ * содержимое кнопки остаётся за React. Список `<option>` тоже за React:
+ * кнопка встаёт перед ним и на согласование не влияет.
  *
  * `title` — полная подпись выбранного варианта: в закрытом состоянии текст
  * обрезан, и подсказка остаётся способом прочитать его целиком, не открывая
  * список.
  */
 export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(
-  function Select({ className = '', title, ...rest }, ref) {
+  function Select({ className = '', title, onChange, ...rest }, ref) {
     const element = useRef<HTMLSelectElement | null>(null);
+    const [trigger, setTrigger] = useState<HTMLButtonElement | null>(null);
     const [selectedLabel, setSelectedLabel] = useState('');
 
     const attach = useCallback(
@@ -208,30 +227,52 @@ export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSel
       [ref],
     );
 
-    useEffect(() => {
+    useLayoutEffect(() => {
       const node = element.current;
       if (!node || !supportsCustomizableSelect()) return;
-      if (node.querySelector(':scope > button')) return;
+      const existing = node.querySelector<HTMLButtonElement>(':scope > button');
+      if (existing) {
+        setTrigger(existing);
+        return;
+      }
       const button = document.createElement('button');
       button.type = 'button';
-      button.appendChild(document.createElement('selectedcontent'));
+      // `tabindex="-1"`: фокус остаётся на самом списке, кнопка — только
+      // поверхность отрисовки закрытого состояния.
+      button.tabIndex = -1;
       node.insertBefore(button, node.firstChild);
+      setTrigger(button);
     }, []);
 
     // Без списка зависимостей намеренно: подпись меняется и от выбора, и от
-    // смены языка. Повторный `setState` тем же значением React отбрасывает,
-    // так что цикла не возникает.
-    useEffect(() => {
-      setSelectedLabel(element.current?.selectedOptions[0]?.textContent?.trim() ?? '');
+    // смены языка, а эффект после коммита видит уже перерисованные `<option>`.
+    // Повторный `setState` тем же значением React отбрасывает, так что цикла
+    // не возникает.
+    useLayoutEffect(() => {
+      setSelectedLabel(selectedLabelOf(element.current));
     });
 
+    // Выбор варианта не обязан перерисовывать владельца формы: поля
+    // калькулятора неуправляемые (react-hook-form), и коммита, после которого
+    // сработал бы эффект выше, может не быть вовсе.
+    const handleChange = (event: ChangeEvent<HTMLSelectElement>): void => {
+      setSelectedLabel(selectedLabelOf(event.currentTarget));
+      onChange?.(event);
+    };
+
     return (
-      <select
-        ref={attach}
-        className={`field-control ${className}`}
-        title={title ?? (selectedLabel || undefined)}
-        {...rest}
-      />
+      <>
+        <select
+          ref={attach}
+          className={`field-control ${className}`}
+          title={title ?? (selectedLabel || undefined)}
+          onChange={handleChange}
+          {...rest}
+        />
+        {trigger
+          ? createPortal(<span className="select-value">{selectedLabel}</span>, trigger)
+          : null}
+      </>
     );
   },
 );

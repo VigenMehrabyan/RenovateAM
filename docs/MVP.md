@@ -29,7 +29,7 @@ MVP считается успешным, если через 3 месяца по
 | F4 | Регистрация: ФИО, e-mail, телефон, адрес объекта |
 | F5 | Верификация e-mail по ссылке |
 | F6 | Загрузка файлов: план БТИ и желаемый дизайн |
-| F7 | Личный кабинет: заявка, её статус, полученная смета |
+| F7 | Личный кабинет: список заявок, статус каждой, полученная смета |
 | F8 | Отправка заявки на ручное рассмотрение |
 | F9 | Админ-панель: очередь заявок, файлы, загрузка сметы, статусы |
 | F10 | Редактор базовой ставки и коэффициентов |
@@ -126,10 +126,10 @@ MVP считается успешным, если через 3 месяца по
 **Критерии приёмки**
 
 - [ ] Кнопка доступна и после автоматического расчёта, и вместо него при дизайнерском пакете
-- [ ] Заявка содержит: параметры расчёта, результат автооценки (если был), файлы, контакты, адрес
+- [ ] Заявка содержит: параметры расчёта, результат автооценки (если был), файлы, контакты и **адрес объекта** — поле заявки, предзаполненное контактным адресом из профиля
 - [ ] После отправки — статус «Принято в работу» и обещанный срок ответа
 - [ ] Клиент получает письмо-подтверждение с номером заявки
-- [ ] Повторная отправка той же заявки заблокирована; активная заявка у клиента одна
+- [ ] Заявок у клиента может быть несколько одновременно; от случайного дубля защищает окно «не более трёх созданных заявок в час» с понятным сообщением
 - [ ] Заявка появляется в очереди админки в течение 5 секунд
 
 ### US-5 · Работа сметчика
@@ -191,7 +191,7 @@ MVP считается успешным, если через 3 месяца по
 | `users` | id, full_name, email, email_verified_at, phone, address, password_hash, role, locale |
 | `verification_tokens` | id, user_id, token, expires_at, used_at |
 | `quick_estimates` | id, user_id (nullable), area, object_type, work_scope, package, condition, ceiling, amount_min, amount_max, rate_version_id, created_at |
-| `requests` | id, user_id, quick_estimate_id, status, needs_manual, comment, created_at, updated_at |
+| `requests` | id, user_id, quick_estimate_id, status, address, needs_manual, comment, created_at, updated_at |
 | `files` | id, request_id, kind (bti / design), original_name, storage_key, mime, size |
 | `quotes` | id, request_id, author_id, file_key, total_amount, created_at |
 | `decisions` | id, request_id, result (accepted / rejected), reason, comment, created_at |

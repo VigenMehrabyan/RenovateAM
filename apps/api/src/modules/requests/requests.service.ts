@@ -1,24 +1,55 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { CONFIG, type AppConfig } from '@config';
 import { AppException } from '@common/errors/app.exception';
 import { ErrorCode } from '@common/errors/error-codes';
-import { DecisionResult, RejectionReason, RequestStatus, UserRole } from '@db/enums';
+import { DecisionResult, Locale, RejectionReason, RequestStatus, UserRole } from '@db/enums';
+import type { Comment, Quote } from '@db';
 import { AUTH_PUBLIC_SERVICE, type AuthPublicService } from '@modules/auth/public';
-import { FILES_PUBLIC_SERVICE, type FilesPublicService } from '@modules/files/public';
+import {
+  FILES_PUBLIC_SERVICE,
+  type FileMeta,
+  type FilesPublicService,
+} from '@modules/files/public';
 import {
   NOTIFICATIONS_PUBLIC_SERVICE,
   type NotificationsPublicService,
 } from '@modules/notifications/public';
 import { PRICING_PUBLIC_SERVICE, type PricingPublicService } from '@modules/pricing/public';
+import type { CreateCommentDto } from './dto/create-comment.dto';
 import type { CreateRequestDto } from './dto/create-request.dto';
 import type { DecisionDto } from './dto/decision.dto';
 import { RequestsRepository, type RequestWithDecision } from './requests.repository';
-import { ACTIVE_STATUSES, checkTransition, isStaffRole, TERMINAL_STATUSES } from './status-machine';
+import {
+  CLIENT_ATTENTION_STATUSES,
+  checkTransition,
+  isStaffRole,
+  TERMINAL_STATUSES,
+} from './status-machine';
 import type {
+  CommentView,
+  RequestDetailView,
+  RequestFileView,
+  RequestQuoteView,
+  RequestQuoteWithKey,
   RequestsPublicService,
   RequestView,
   StatusLogView,
   TransitionCommand,
 } from './public';
+
+/**
+ * Антидубль вместо снятого инварианта «одна активная заявка».
+ *
+ * Заявок у клиента может быть сколько угодно одновременно, но три штуки за час
+ * — это уже не «второй объект», а промах по кнопке или перезагрузка страницы
+ * с повторной отправкой. Порог выбран выше правдоподобного ручного сценария
+ * (посчитал и отправил два-три объекта подряд) и ниже любого случайного
+ * дребезга.
+ */
+export const MAX_REQUESTS_PER_WINDOW = 3;
+
+/** Длина окна антидубля — один час. */
+export const REQUEST_WINDOW_MS = 60 * 60 * 1000;
 
 @Injectable()
 export class RequestsService implements RequestsPublicService {
@@ -31,19 +62,12 @@ export class RequestsService implements RequestsPublicService {
     @Inject(AUTH_PUBLIC_SERVICE) private readonly auth: AuthPublicService,
     @Inject(NOTIFICATIONS_PUBLIC_SERVICE)
     private readonly notifications: NotificationsPublicService,
+    @Inject(CONFIG) private readonly config: AppConfig,
   ) {}
 
   // --- создание ------------------------------------------------------------
 
   async create(userId: string, dto: CreateRequestDto): Promise<RequestView> {
-    if (await this.hasActiveRequest(userId)) {
-      throw new AppException(
-        409,
-        ErrorCode.ACTIVE_REQUEST_EXISTS,
-        'Client already has an active request',
-      );
-    }
-
     let needsManual = true;
     let quickEstimateId: string | null = null;
 
@@ -56,29 +80,32 @@ export class RequestsService implements RequestsPublicService {
       if (new Date(estimate.expiresAt).getTime() < Date.now()) {
         throw new AppException(410, ErrorCode.ESTIMATE_EXPIRED, 'Quick estimate expired');
       }
-      needsManual = estimate.needsManual;
+      needsManual = estimate.needsManualReview;
       quickEstimateId = estimate.id;
     }
 
-    const created = await this.repository
-      .createWithLog({
+    const created = await this.repository.createWithLogWithinLimit(
+      {
         userId,
         quickEstimateId,
         status: RequestStatus.NEW,
+        address: dto.address.trim(),
         needsManual,
         comment: dto.comment ?? null,
-      })
-      .catch((error: unknown) => {
-        // Гонка двух параллельных отправок ловится уникальным индексом.
-        if (isUniqueViolation(error)) {
-          throw new AppException(
-            409,
-            ErrorCode.ACTIVE_REQUEST_EXISTS,
-            'Client already has an active request',
-          );
-        }
-        throw error;
-      });
+      },
+      {
+        maxPerWindow: MAX_REQUESTS_PER_WINDOW,
+        windowStart: new Date(Date.now() - REQUEST_WINDOW_MS),
+      },
+    );
+
+    if (!created) {
+      throw new AppException(
+        429,
+        ErrorCode.REQUEST_LIMIT_REACHED,
+        `No more than ${MAX_REQUESTS_PER_WINDOW} requests per hour`,
+      );
+    }
 
     if (dto.fileIds && dto.fileIds.length > 0) {
       await this.files.attachToRequest(dto.fileIds, created.id, userId);
@@ -107,26 +134,37 @@ export class RequestsService implements RequestsPublicService {
     return request ? this.toView(request) : null;
   }
 
+  async getDetailById(requestId: string): Promise<RequestDetailView | null> {
+    const request = await this.repository.findById(requestId);
+    if (!request) return null;
+    return this.toDetailView(request);
+  }
+
   /** Чтение с проверкой доступа: свои заявки — клиенту, любые — сотруднику. */
   async getForActor(
     requestId: string,
     actor: { id: string; role: UserRole },
-  ): Promise<RequestView> {
+  ): Promise<RequestDetailView> {
     const request = await this.repository.findById(requestId);
     if (!request) throw new AppException(404, ErrorCode.NOT_FOUND, 'Request not found');
     if (!isStaffRole(actor.role) && request.userId !== actor.id) {
       throw new AppException(403, ErrorCode.FORBIDDEN, 'Request belongs to another user');
     }
-    return this.toView(request);
+    return this.toDetailView(request);
   }
 
+  /**
+   * Список заявок клиента. Сначала те, где ход за клиентом (смета готова,
+   * нужны данные), дальше — по дате последнего изменения: кабинет открывают,
+   * чтобы увидеть, что требуется сделать.
+   */
   async listOwn(userId: string): Promise<RequestView[]> {
     const requests = await this.repository.listByUser(userId);
-    return Promise.all(requests.map((request) => this.toView(request)));
-  }
-
-  async hasActiveRequest(userId: string): Promise<boolean> {
-    return (await this.repository.countActiveByUser(userId, ACTIVE_STATUSES)) > 0;
+    const ordered = [
+      ...requests.filter((request) => CLIENT_ATTENTION_STATUSES.includes(request.status)),
+      ...requests.filter((request) => !CLIENT_ATTENTION_STATUSES.includes(request.status)),
+    ];
+    return this.toViews(ordered);
   }
 
   async isOwnedBy(requestId: string, userId: string): Promise<boolean> {
@@ -148,7 +186,7 @@ export class RequestsService implements RequestsPublicService {
       take: params.pageSize,
       sortDirection: params.sortDirection,
     });
-    return { items: await Promise.all(items.map((item) => this.toView(item))), total };
+    return { items: await this.toViews(items), total };
   }
 
   async getStatusLog(requestId: string): Promise<StatusLogView[]> {
@@ -161,6 +199,209 @@ export class RequestsService implements RequestsPublicService {
       comment: entry.comment,
       createdAt: entry.createdAt.toISOString(),
     }));
+  }
+
+  // --- обсуждение ----------------------------------------------------------
+
+  /**
+   * Новое сообщение в обсуждении заявки.
+   *
+   * Обсуждение существует ради одного: чтобы сметчик спросил, а клиент дослал
+   * недостающее, не поднимая трубку. Поэтому писать может и клиент в своей
+   * заявке, и сотрудник в любой, а право проверяется здесь, на каждом запросе,
+   * а не скрытием кнопки в интерфейсе.
+   *
+   * Правки и удаления нет: переписка о деньгах — документ. Опечатка
+   * исправляется следующим сообщением.
+   */
+  async addComment(
+    requestId: string,
+    actor: { id: string; role: UserRole },
+    dto: CreateCommentDto,
+  ): Promise<CommentView> {
+    const request = await this.repository.findById(requestId);
+    if (!request) throw new AppException(404, ErrorCode.NOT_FOUND, 'Request not found');
+    if (!isStaffRole(actor.role) && request.userId !== actor.id) {
+      throw new AppException(403, ErrorCode.FORBIDDEN, 'Request belongs to another user');
+    }
+    // Лента отклонённой заявки остаётся читаемой, но дописывать в неё нечего:
+    // решение необратимо, обсуждать больше нечего.
+    if (request.status === RequestStatus.REJECTED) {
+      throw new AppException(
+        409,
+        ErrorCode.DISCUSSION_CLOSED,
+        'Discussion is read-only for a rejected request',
+      );
+    }
+
+    const text = dto.text.trim();
+    const fileIds = dto.fileIds ?? [];
+    if (text.length === 0 && fileIds.length === 0) {
+      throw new AppException(422, ErrorCode.VALIDATION_FAILED, 'Message must carry text or files', {
+        details: [{ field: 'text', code: 'REQUIRED' }],
+      });
+    }
+
+    // Вложения привязываются к заявке ДО создания сообщения: файл, о котором
+    // сообщение говорит, обязан уже лежать в заявке, а не появиться позже.
+    const attachedIds = await this.attachCommentFiles(fileIds, request.id, actor.id);
+
+    const comment = await this.repository.createComment({
+      requestId: request.id,
+      authorId: actor.id,
+      // Роль пишется в саму запись: учётную запись могут отключить или
+      // перевести, а лента обязана остаться читаемой.
+      authorRole: actor.role,
+      text,
+      fileIds: attachedIds,
+    });
+
+    const author = await this.auth.getUserById(actor.id);
+    await this.notifyComment(request, comment, author?.email ?? null);
+    this.logger.log(
+      `event=request_comment_added request=${request.id} role=${actor.role} files=${attachedIds.length}`,
+    );
+
+    const files = (await this.files.listByRequest(request.id)).filter((file) =>
+      attachedIds.includes(file.id),
+    );
+    return {
+      id: comment.id,
+      author: { id: actor.id, name: author?.fullName ?? null, role: comment.authorRole },
+      text: comment.text,
+      createdAt: comment.createdAt.toISOString(),
+      files,
+    };
+  }
+
+  /**
+   * Привязка вложений к заявке через модуль files: второго пути загрузки нет,
+   * работает та же двухфазная схема с подписанными ссылками.
+   *
+   * Возвращает только те файлы, которые действительно оказались в заявке:
+   * чужие и неподтверждённые модуль files молча отсеивает.
+   */
+  private async attachCommentFiles(
+    fileIds: string[],
+    requestId: string,
+    userId: string,
+  ): Promise<string[]> {
+    if (fileIds.length === 0) return [];
+    const files = await this.files.attachToRequest(fileIds, requestId, userId);
+    return files.filter((file) => fileIds.includes(file.id)).map((file) => file.id);
+  }
+
+  /**
+   * Письмо на каждое новое сообщение — требование заказчика. Исключение
+   * ровно одно: автору его собственного сообщения письма не уходит.
+   *
+   * Написал сотрудник — пишем клиенту; написал клиент — на общий ящик
+   * `MANAGER_EMAIL` (роли «менеджер» в системе нет, ARCHITECTURE §11, вопрос 7).
+   */
+  private async notifyComment(
+    request: RequestWithDecision,
+    comment: Comment,
+    authorEmail: string | null,
+  ): Promise<void> {
+    const byStaff = isStaffRole(comment.authorRole);
+    const owner = await this.auth.getUserById(request.userId);
+    const to = byStaff ? (owner?.email ?? null) : this.config.mail.managerEmail || null;
+    if (!to) {
+      this.logger.warn(`сообщение по заявке ${request.id}: некому отправить письмо`);
+      return;
+    }
+    if (authorEmail && to.toLowerCase() === authorEmail.toLowerCase()) return;
+
+    await this.notifications.send({
+      type: 'REQUEST_COMMENT',
+      to,
+      // У общего ящика профиля нет — язык компании по умолчанию.
+      locale: byStaff ? (owner?.locale ?? Locale.RU) : Locale.RU,
+      requestNumber: request.number,
+      byStaff,
+      comment: comment.text,
+    });
+  }
+
+  /** Лента заявки. Метаданные вложений берутся из уже собранного списка файлов. */
+  private async buildComments(requestId: string, files: RequestFileView[]): Promise<CommentView[]> {
+    const [rows, links] = await Promise.all([
+      this.repository.listComments(requestId),
+      this.repository.listCommentFileLinks([requestId]),
+    ]);
+    if (rows.length === 0) return [];
+
+    const authorIds = [
+      ...new Set(rows.map((row) => row.authorId).filter((id): id is string => id !== null)),
+    ];
+    const authors = new Map(
+      (await this.auth.getUsersByIds(authorIds)).map((user) => [user.id, user]),
+    );
+    const metaByFileId = new Map(files.map((file) => [file.id, file]));
+    const filesByComment = new Map<string, FileMeta[]>();
+    for (const link of links) {
+      const meta = metaByFileId.get(link.fileId);
+      if (!meta) continue;
+      const bucket = filesByComment.get(link.commentId) ?? [];
+      bucket.push(meta);
+      filesByComment.set(link.commentId, bucket);
+    }
+
+    return rows.map((row) => ({
+      id: row.id,
+      author: {
+        id: row.authorId,
+        name: row.authorId ? (authors.get(row.authorId)?.fullName ?? null) : null,
+        // Роль — из самой записи, а не из профиля: она могла смениться.
+        role: row.authorRole,
+      },
+      text: row.text,
+      createdAt: row.createdAt.toISOString(),
+      files: filesByComment.get(row.id) ?? [],
+    }));
+  }
+
+  // --- смета ---------------------------------------------------------------
+
+  async registerQuote(params: {
+    requestId: string;
+    authorId: string;
+    fileKey: string;
+    totalAmount: number;
+  }): Promise<RequestQuoteView> {
+    const quote = await this.repository.createQuote({
+      requestId: params.requestId,
+      authorId: params.authorId,
+      fileKey: params.fileKey,
+      totalAmount: params.totalAmount,
+    });
+    return toQuoteView(quote);
+  }
+
+  async getCurrentQuote(requestId: string): Promise<RequestQuoteWithKey | null> {
+    const quote = await this.repository.findCurrentQuote(requestId);
+    return quote ? { ...toQuoteView(quote), fileKey: quote.fileKey } : null;
+  }
+
+  /**
+   * Подписанная ссылка на смету для владельца заявки.
+   *
+   * Клиенту нужен собственный маршрут: `/admin/...` закрыт ролевым гвардом,
+   * а `/files/:id/download-url` знает только о файлах клиента — смета лежит
+   * в таблице quotes, и по её идентификатору тот эндпоинт отвечал 404.
+   */
+  async getQuoteDownloadUrl(
+    requestId: string,
+    actor: { id: string; role: UserRole },
+  ): Promise<{ url: string; expiresAt: string }> {
+    const request = await this.repository.findById(requestId);
+    if (!request) throw new AppException(404, ErrorCode.NOT_FOUND, 'Request not found');
+    if (!isStaffRole(actor.role) && request.userId !== actor.id) {
+      throw new AppException(403, ErrorCode.FORBIDDEN, 'Request belongs to another user');
+    }
+    const quote = await this.repository.findCurrentQuote(requestId);
+    if (!quote) throw new AppException(404, ErrorCode.NOT_FOUND, 'Quote not found');
+    return this.files.createDownloadUrlForKey(quote.fileKey);
   }
 
   // --- переходы ------------------------------------------------------------
@@ -208,14 +449,17 @@ export class RequestsService implements RequestsPublicService {
       );
     }
 
-    // Смету нельзя объявить готовой, пока её нет. Признак приходит от
-    // владельца таблицы quotes — модуль requests её не читает.
-    if (command.to === RequestStatus.QUOTE_READY && command.hasCurrentQuote === false) {
-      throw new AppException(
-        409,
-        ErrorCode.INVALID_STATUS_TRANSITION,
-        'Request has no current quote',
-      );
+    // Смету нельзя объявить готовой, пока её нет. Таблицей quotes владеет этот
+    // же модуль, поэтому инвариант проверяется здесь, а не со слов вызывающего.
+    if (command.to === RequestStatus.QUOTE_READY) {
+      const quote = await this.repository.findCurrentQuote(request.id);
+      if (!quote) {
+        throw new AppException(
+          409,
+          ErrorCode.INVALID_STATUS_TRANSITION,
+          'Request has no current quote',
+        );
+      }
     }
 
     const updated = await this.repository.transition({
@@ -332,7 +576,44 @@ export class RequestsService implements RequestsPublicService {
     });
   }
 
+  private async toDetailView(request: RequestWithDecision): Promise<RequestDetailView> {
+    const view = await this.toView(request);
+    const [statusLog, comments] = await Promise.all([
+      this.getStatusLog(request.id),
+      this.buildComments(request.id, view.files),
+    ]);
+    return { ...view, statusLog, comments };
+  }
+
   private async toView(request: RequestWithDecision): Promise<RequestView> {
+    const [quote, links] = await Promise.all([
+      this.repository.findCurrentQuote(request.id),
+      this.repository.listCommentFileLinks([request.id]),
+    ]);
+    return this.composeView(request, quote, new Set(links.map((link) => link.fileId)));
+  }
+
+  /** Список: сметы и вложения переписки читаются одним запросом на весь список. */
+  private async toViews(requests: RequestWithDecision[]): Promise<RequestView[]> {
+    const ids = requests.map((item) => item.id);
+    const [quotes, links] = await Promise.all([
+      this.repository.findCurrentQuotes(ids),
+      this.repository.listCommentFileLinks(ids),
+    ]);
+    const byRequestId = new Map(quotes.map((quote) => [quote.requestId, quote]));
+    const discussionFileIds = new Set(links.map((link) => link.fileId));
+    return Promise.all(
+      requests.map((request) =>
+        this.composeView(request, byRequestId.get(request.id) ?? null, discussionFileIds),
+      ),
+    );
+  }
+
+  private async composeView(
+    request: RequestWithDecision,
+    quote: Quote | null,
+    discussionFileIds: ReadonlySet<string>,
+  ): Promise<RequestView> {
     const [estimate, files] = await Promise.all([
       request.quickEstimateId ? this.pricing.getQuickEstimate(request.quickEstimateId) : null,
       this.files.listByRequest(request.id),
@@ -343,12 +624,19 @@ export class RequestsService implements RequestsPublicService {
       number: request.number,
       userId: request.userId,
       status: request.status,
+      address: request.address,
       needsManual: request.needsManual,
       comment: request.comment,
       createdAt: request.createdAt.toISOString(),
       updatedAt: request.updatedAt.toISOString(),
       estimate,
-      files,
+      // Файл из переписки попадает в общий список файлов заявки с пометкой,
+      // откуда он: искать вложение по ленте клиент не должен.
+      files: files.map((file) => ({
+        ...file,
+        source: discussionFileIds.has(file.id) ? ('DISCUSSION' as const) : ('REQUEST' as const),
+      })),
+      quote: quote ? toQuoteView(quote) : null,
       decision: request.decision
         ? {
             result: request.decision.result,
@@ -361,8 +649,10 @@ export class RequestsService implements RequestsPublicService {
   }
 }
 
-/** Нарушение уникального индекса PostgreSQL. */
-function isUniqueViolation(error: unknown): boolean {
-  const code = (error as { code?: string }).code;
-  return code === 'P2002' || code === '23505';
+function toQuoteView(quote: Quote): RequestQuoteView {
+  return {
+    id: quote.id,
+    totalAmount: quote.totalAmount,
+    createdAt: quote.createdAt.toISOString(),
+  };
 }

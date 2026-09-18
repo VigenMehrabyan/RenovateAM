@@ -11,7 +11,6 @@ import {
   type RequestsPublicService,
   type RequestView,
 } from '@modules/requests/public';
-import { AdminRepository } from './admin.repository';
 
 /** PDF-смета: единственный допустимый формат (US-5). */
 const QUOTE_MIME = 'application/pdf';
@@ -34,7 +33,6 @@ export class AdminService {
   private readonly logger = new Logger(AdminService.name);
 
   constructor(
-    private readonly repository: AdminRepository,
     @Inject(REQUESTS_PUBLIC_SERVICE) private readonly requests: RequestsPublicService,
     @Inject(AUTH_PUBLIC_SERVICE) private readonly auth: AuthPublicService,
     @Inject(FILES_PUBLIC_SERVICE) private readonly files: FilesPublicService,
@@ -100,29 +98,17 @@ export class AdminService {
     };
   }
 
-  /** Карточка заявки: параметры, контакты, файлы, смета и журнал на одном экране. */
+  /**
+   * Карточка заявки: параметры, контакты, файлы, смета и журнал на одном экране.
+   * Смета и журнал приходят из самой заявки — тот же ответ видит и клиент
+   * в кабинете, админка добавляет к нему только контакты.
+   */
   async getRequestCard(requestId: string) {
-    const request = await this.requests.getById(requestId);
+    const request = await this.requests.getDetailById(requestId);
     if (!request) throw new AppException(404, ErrorCode.NOT_FOUND, 'Request not found');
 
-    const [client, quote, statusLog] = await Promise.all([
-      this.auth.getUserById(request.userId),
-      this.repository.findCurrentQuote(requestId),
-      this.requests.getStatusLog(requestId),
-    ]);
-
-    return {
-      ...request,
-      client,
-      quote: quote
-        ? {
-            id: quote.id,
-            totalAmount: quote.totalAmount,
-            createdAt: quote.createdAt.toISOString(),
-          }
-        : null,
-      statusLog,
-    };
+    const client = await this.auth.getUserById(request.userId);
+    return { ...request, client };
   }
 
   async changeStatus(params: {
@@ -131,13 +117,11 @@ export class AdminService {
     actor: { id: string; role: UserRole };
     comment?: string;
   }): Promise<RequestView> {
-    const quote = await this.repository.findCurrentQuote(params.requestId);
     return this.requests.transitionStatus({
       requestId: params.requestId,
       to: params.to,
       actor: params.actor,
       ...(params.comment !== undefined ? { comment: params.comment } : {}),
-      hasCurrentQuote: quote !== null,
     });
   }
 
@@ -171,12 +155,12 @@ export class AdminService {
       );
     }
 
-    const quoteId = randomUUID();
-    const fileKey = `quotes/${params.requestId}/${quoteId}.pdf`;
+    // Ключ объекта не завязан на идентификатор сметы: строку заводит владелец
+    // агрегата (модуль requests), а в хранилище файл кладётся раньше неё.
+    const fileKey = `quotes/${params.requestId}/${randomUUID()}.pdf`;
     await this.files.putObject(fileKey, params.file.buffer, QUOTE_MIME);
 
-    const quote = await this.repository.createQuote({
-      id: quoteId,
+    const quote = await this.requests.registerQuote({
       requestId: params.requestId,
       authorId: params.actor.id,
       fileKey,
@@ -188,7 +172,6 @@ export class AdminService {
         requestId: params.requestId,
         to: RequestStatus.QUOTE_READY,
         actor: params.actor,
-        hasCurrentQuote: true,
       });
     }
 
@@ -201,12 +184,7 @@ export class AdminService {
       }`,
     );
 
-    return {
-      id: quote.id,
-      totalAmount: quote.totalAmount,
-      createdAt: quote.createdAt.toISOString(),
-      isCurrent: quote.isCurrent,
-    };
+    return { ...quote, isCurrent: true };
   }
 
   /** Ссылка на скачивание сметы: сотруднику — любую, клиенту — только свою. */
@@ -215,7 +193,7 @@ export class AdminService {
     if (!isStaff && !(await this.requests.isOwnedBy(requestId, actor.id))) {
       throw new AppException(403, ErrorCode.FORBIDDEN, 'Request belongs to another user');
     }
-    const quote = await this.repository.findCurrentQuote(requestId);
+    const quote = await this.requests.getCurrentQuote(requestId);
     if (!quote) throw new AppException(404, ErrorCode.NOT_FOUND, 'Quote not found');
     return this.files.createDownloadUrlForKey(quote.fileKey);
   }

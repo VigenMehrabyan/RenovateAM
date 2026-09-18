@@ -16,6 +16,8 @@ export const DATABASE_AVAILABLE = Boolean(
 );
 
 const TABLES = [
+  'comment_files',
+  'comments',
   'status_log',
   'decisions',
   'quotes',
@@ -38,6 +40,9 @@ export interface TestContext {
   close: () => Promise<void>;
   reset: () => Promise<void>;
 }
+
+/** Адрес объекта — обязательное поле заявки (адрес принадлежит заявке, не профилю). */
+export const ADDRESS = 'Ереван, Абовяна 5, кв. 12';
 
 export function url(path: string): string {
   return `/${API_PREFIX}${path}`;

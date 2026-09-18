@@ -277,7 +277,8 @@
       "commentHint": "Up to 2000 characters",
       "submit": "Send request",
       "submitted": "Request sent",
-      "activeExists": "You already have an active request."
+      "addressLabel": "Property address",
+      "addressHint": "Prefilled with the contact address from your profile — change it if the renovation is at another property"
     },
     "files": {
       "btiTitle": "BTI floor plan",
@@ -321,7 +322,6 @@
     "requestNumber": "Request No. {{number}}",
     "createdAt": "Created",
     "updatedAt": "Updated",
-    "noRequests": "No active request.",
     "createRequest": "Create a request",
     "historyTitle": "Status history",
     "historyEntry": "{{from}} → {{to}}",
@@ -353,6 +353,19 @@
         "POSTPONED": "Postponed the renovation",
         "OTHER": "Other"
       }
+    },
+    "addressLabel": "Property address",
+    "paramsTitle": "Property details",
+    "backToList": "All requests",
+    "empty": {
+      "title": "No requests yet",
+      "text": "Start with a quick estimate: enter the area and property details — you will see the price range at once, and the request reaches the estimator with those numbers already attached.",
+      "calculate": "Estimate the cost",
+      "skip": "Send a request without an estimate"
+    },
+    "fileSource": {
+      "REQUEST": "Attached to the request",
+      "DISCUSSION": "From the discussion"
     }
   },
   "admin": {
@@ -400,7 +413,8 @@
       "quoteTotalRequired": "Enter the total amount",
       "quoteFileRequired": "Choose a PDF file",
       "decisionTitle": "Client decision",
-      "back": "Back to queue"
+      "back": "Back to queue",
+      "clientAddress": "Contact address"
     },
     "rates": {
       "title": "Rates and coefficients",
@@ -437,7 +451,6 @@
     "EMAIL_NOT_VERIFIED": "Verify your e-mail — a request cannot be sent without it.",
     "NOT_FOUND": "Not found.",
     "EMAIL_ALREADY_REGISTERED": "A user with this e-mail is already registered.",
-    "ACTIVE_REQUEST_EXISTS": "You already have an active request.",
     "DECISION_ALREADY_MADE": "A decision on this quote has already been made.",
     "INVALID_STATUS_TRANSITION": "This status transition is not allowed.",
     "TOKEN_INVALID": "The link is not valid.",
@@ -453,7 +466,9 @@
     "RATE_LIMITED": "Too many requests. Wait a minute.",
     "RESEND_TOO_SOON": "The message can be sent once per 60 seconds.",
     "UNKNOWN": "Something went wrong. Try again.",
-    "retry": "Try again"
+    "retry": "Try again",
+    "REQUEST_LIMIT_REACHED": "Too many requests in a row: no more than three per hour. Check your cabinet — the request may already be submitted.",
+    "DISCUSSION_CLOSED": "The request is rejected — no new messages are accepted."
   },
   "notFound": {
     "title": "Page not found",
@@ -463,5 +478,28 @@
   "emailVerifiedGate": {
     "title": "Verify your e-mail",
     "text": "Sending a request becomes available right after the address is verified."
+  },
+  "discussion": {
+    "title": "Discussion",
+    "lead": "Questions and files about the request. The estimator replies right here — no phone call needed.",
+    "empty": "No messages yet",
+    "emptyHint": "Ask anything that is unclear, or send the missing file — the estimator will reply here.",
+    "placeholder": "Write a message",
+    "label": "New message",
+    "counter": "{{current}} of {{max}} characters",
+    "send": "Send",
+    "attach": "Attach a file",
+    "attachmentsLabel": "Message attachments",
+    "uploading": "Uploading…",
+    "uploadFailed": "The file was not uploaded — try again",
+    "waitUpload": "Wait for the attachment to finish uploading",
+    "closed": "The request is rejected: the thread stays readable but takes no new messages.",
+    "you": "You",
+    "roles": {
+      "CLIENT": "Client",
+      "ESTIMATOR": "Estimator",
+      "ADMIN": "Administrator"
+    },
+    "deletedAuthor": "Account deleted"
   }
 }

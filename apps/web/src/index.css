@@ -367,7 +367,8 @@
     align-items: center;
     overflow: visible;
   }
-  /* Кнопка закрытого состояния и копия выбранного варианта внутри неё. */
+  /* Кнопка закрытого состояния и подпись выбранного варианта внутри неё
+     (её рисует React — см. Select в components/ui.tsx). */
   select.field-control > button {
     display: flex;
     align-items: center;
@@ -380,7 +381,7 @@
     font: inherit;
     text-align: inherit;
   }
-  select.field-control selectedcontent {
+  select.field-control > button > .select-value {
     display: block;
     min-width: 0;
     flex: 1 1 auto;

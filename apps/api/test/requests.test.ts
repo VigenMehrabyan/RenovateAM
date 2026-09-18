@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
+  ADDRESS,
   DATABASE_AVAILABLE,
   createClient,
   createEstimate,
@@ -36,7 +37,7 @@ describe.skipIf(!DATABASE_AVAILABLE)('requests (интеграция)', () => {
         .http()
         .post(url('/requests'))
         .set(auth(user))
-        .send({ quickEstimateId: estimateId, comment: 'Хочу ремонт под ключ' })
+        .send({ address: ADDRESS, quickEstimateId: estimateId, comment: 'Хочу ремонт под ключ' })
         .expect(201);
 
       expect(response.body).toMatchObject({
@@ -58,7 +59,7 @@ describe.skipIf(!DATABASE_AVAILABLE)('requests (интеграция)', () => {
         .http()
         .post(url('/requests'))
         .set(auth(user))
-        .send({})
+        .send({ address: ADDRESS })
         .expect(201);
       expect(response.body.files).toEqual([]);
       expect(response.body.needsManual).toBe(true);
@@ -72,7 +73,7 @@ describe.skipIf(!DATABASE_AVAILABLE)('requests (интеграция)', () => {
         .http()
         .post(url('/requests'))
         .set(auth(user))
-        .send({ quickEstimateId: estimateId })
+        .send({ address: ADDRESS, quickEstimateId: estimateId })
         .expect(201);
 
       expect(response.body.needsManual).toBe(true);
@@ -87,7 +88,7 @@ describe.skipIf(!DATABASE_AVAILABLE)('requests (интеграция)', () => {
         .http()
         .post(url('/requests'))
         .set(auth(user))
-        .send({})
+        .send({ address: ADDRESS })
         .expect(201);
 
       const { rows } = await context.db.query<{ from_status: string | null; to_status: string }>(
@@ -109,7 +110,7 @@ describe.skipIf(!DATABASE_AVAILABLE)('requests (интеграция)', () => {
         .http()
         .post(url('/requests'))
         .set(auth(user))
-        .send({ quickEstimateId: estimateId })
+        .send({ address: ADDRESS, quickEstimateId: estimateId })
         .expect(410);
       expect(response.body.error.code).toBe('ESTIMATE_EXPIRED');
     });
@@ -122,7 +123,7 @@ describe.skipIf(!DATABASE_AVAILABLE)('requests (интеграция)', () => {
         .http()
         .post(url('/requests'))
         .set(auth(user))
-        .send({})
+        .send({ address: ADDRESS })
         .expect(403);
       expect(response.body.error.code).toBe('EMAIL_NOT_VERIFIED');
     });
@@ -146,76 +147,235 @@ describe.skipIf(!DATABASE_AVAILABLE)('requests (интеграция)', () => {
 
     it('после верификации заявка создаётся сразу, без перевыпуска токена', async () => {
       const user = await createClient(context, { verified: false });
-      await context.http().post(url('/requests')).set(auth(user)).send({}).expect(403);
+      await context
+        .http()
+        .post(url('/requests'))
+        .set(auth(user))
+        .send({ address: ADDRESS })
+        .expect(403);
 
       const message = context.mail.lastTo(user.email)!;
       const token = /token=([A-Za-z0-9_-]+)/.exec(message.text)![1]!;
       await context.http().post(url('/auth/verify')).send({ token }).expect(200);
 
       // Старый access-токен ещё содержит emailVerified=false, но гейт читает БД.
-      await context.http().post(url('/requests')).set(auth(user)).send({}).expect(201);
+      await context
+        .http()
+        .post(url('/requests'))
+        .set(auth(user))
+        .send({ address: ADDRESS })
+        .expect(201);
     });
   });
 
-  describe('инвариант «одна активная заявка»', () => {
-    it('вторая активная заявка не создаётся', async () => {
+  describe('антидубль вместо «одной активной заявки»', () => {
+    it('несколько заявок у одного клиента существуют одновременно', async () => {
       const user = await createClient(context);
-      await context.http().post(url('/requests')).set(auth(user)).send({}).expect(201);
-
-      const second = await context
+      await context
         .http()
         .post(url('/requests'))
         .set(auth(user))
-        .send({})
-        .expect(409);
-      expect(second.body.error.code).toBe('ACTIVE_REQUEST_EXISTS');
+        .send({ address: 'Ереван, Маштоца 10' })
+        .expect(201);
+      await context
+        .http()
+        .post(url('/requests'))
+        .set(auth(user))
+        .send({ address: 'Гюмри, Руставели 3' })
+        .expect(201);
+
+      const mine = await context.http().get(url('/requests/me')).set(auth(user)).expect(200);
+      expect(mine.body).toHaveLength(2);
+      expect(mine.body.map((item: { address: string }) => item.address)).toEqual(
+        expect.arrayContaining(['Ереван, Маштоца 10', 'Гюмри, Руставели 3']),
+      );
+    });
+
+    it('четвёртая заявка за час отклоняется понятной ошибкой', async () => {
+      const user = await createClient(context);
+      for (let index = 0; index < 3; index += 1) {
+        await context
+          .http()
+          .post(url('/requests'))
+          .set(auth(user))
+          .send({ address: ADDRESS })
+          .expect(201);
+      }
+
+      const fourth = await context
+        .http()
+        .post(url('/requests'))
+        .set(auth(user))
+        .send({ address: ADDRESS })
+        .expect(429);
+      expect(fourth.body.error.code).toBe('REQUEST_LIMIT_REACHED');
 
       const { rows } = await context.db.query<{ count: string }>(
         'SELECT count(*) FROM "requests" WHERE "user_id" = $1',
         [user.id],
       );
-      expect(Number(rows[0]!.count)).toBe(1);
+      expect(Number(rows[0]!.count)).toBe(3);
     });
 
-    it('параллельные отправки не создают двух заявок (гонка ловится индексом)', async () => {
+    it('окно считается по часу: заявки старше часа лимит не занимают', async () => {
       const user = await createClient(context);
-      const results = await Promise.allSettled([
-        context.http().post(url('/requests')).set(auth(user)).send({}),
-        context.http().post(url('/requests')).set(auth(user)).send({}),
-        context.http().post(url('/requests')).set(auth(user)).send({}),
-      ]);
+      for (let index = 0; index < 3; index += 1) {
+        await context
+          .http()
+          .post(url('/requests'))
+          .set(auth(user))
+          .send({ address: ADDRESS })
+          .expect(201);
+      }
+      await context.db.query(
+        `UPDATE "requests" SET "created_at" = now() - interval '2 hours' WHERE "user_id" = $1`,
+        [user.id],
+      );
+
+      await context
+        .http()
+        .post(url('/requests'))
+        .set(auth(user))
+        .send({ address: ADDRESS })
+        .expect(201);
+    });
+
+    it('параллельные отправки лимит не обходят', async () => {
+      const user = await createClient(context);
+      const results = await Promise.allSettled(
+        Array.from({ length: 6 }, () =>
+          context.http().post(url('/requests')).set(auth(user)).send({ address: ADDRESS }),
+        ),
+      );
       const created = results.filter(
         (result) => result.status === 'fulfilled' && result.value.status === 201,
       );
-      expect(created).toHaveLength(1);
+      expect(created).toHaveLength(3);
 
       const { rows } = await context.db.query<{ count: string }>(
         'SELECT count(*) FROM "requests" WHERE "user_id" = $1',
         [user.id],
       );
-      expect(Number(rows[0]!.count)).toBe(1);
+      expect(Number(rows[0]!.count)).toBe(3);
     });
 
-    it('после закрытия заявки можно создать новую', async () => {
+    it('лимит считается по пользователю: заявки соседа не мешают', async () => {
+      const first = await createClient(context);
+      const second = await createClient(context);
+      for (let index = 0; index < 3; index += 1) {
+        await context
+          .http()
+          .post(url('/requests'))
+          .set(auth(first))
+          .send({ address: ADDRESS })
+          .expect(201);
+      }
+      await context
+        .http()
+        .post(url('/requests'))
+        .set(auth(second))
+        .send({ address: ADDRESS })
+        .expect(201);
+    });
+
+    it('адрес обязателен и не берётся из профиля молча', async () => {
       const user = await createClient(context);
-      const first = await context
+      const response = await context
         .http()
         .post(url('/requests'))
         .set(auth(user))
         .send({})
-        .expect(201);
-      await context.db.query(`UPDATE "requests" SET "status" = 'REJECTED' WHERE "id" = $1`, [
-        first.body.id,
-      ]);
+        .expect(422);
+      expect(response.body.error.code).toBe('VALIDATION_FAILED');
+      expect(response.body.error.details).toContainEqual(
+        expect.objectContaining({ field: 'address' }),
+      );
+    });
+  });
 
-      await context.http().post(url('/requests')).set(auth(user)).send({}).expect(201);
+  describe('список заявок кабинета', () => {
+    /** Создаёт заявку и сразу приводит её к нужному статусу и дате изменения. */
+    async function seedRequest(
+      user: TestUser,
+      params: { address: string; status?: string; updatedAt?: string },
+    ): Promise<string> {
+      const created = await context
+        .http()
+        .post(url('/requests'))
+        .set(auth(user))
+        .send({ address: params.address })
+        .expect(201);
+      const id = created.body.id as string;
+      await context.db.query(
+        `UPDATE "requests"
+            SET "status" = COALESCE($2, "status")::"RequestStatus",
+                "updated_at" = COALESCE($3::timestamptz, "updated_at")
+          WHERE "id" = $1`,
+        [id, params.status ?? null, params.updatedAt ?? null],
+      );
+      return id;
+    }
+
+    it('возвращает только свои заявки', async () => {
+      const owner = await createClient(context);
+      const stranger = await createClient(context);
+      await seedRequest(owner, { address: 'Ереван, Маштоца 10' });
+      await seedRequest(stranger, { address: 'Гюмри, Руставели 3' });
+
+      const mine = await context.http().get(url('/requests/me')).set(auth(owner)).expect(200);
+      expect(mine.body).toHaveLength(1);
+      expect(mine.body[0].address).toBe('Ереван, Маштоца 10');
     });
 
-    it('заявки разных клиентов друг другу не мешают', async () => {
-      const first = await createClient(context);
-      const second = await createClient(context);
-      await context.http().post(url('/requests')).set(auth(first)).send({}).expect(201);
-      await context.http().post(url('/requests')).set(auth(second)).send({}).expect(201);
+    it('сначала требующие внимания клиента, дальше по дате изменения', async () => {
+      const user = await createClient(context);
+      await seedRequest(user, {
+        address: 'Свежая, но ход не за клиентом',
+        status: 'IN_PROGRESS',
+        updatedAt: '2026-09-14T10:00:00Z',
+      });
+      await seedRequest(user, {
+        address: 'Нужны данные',
+        status: 'NEEDS_INFO',
+        updatedAt: '2026-09-01T10:00:00Z',
+      });
+      await seedRequest(user, {
+        address: 'Смета готова',
+        status: 'QUOTE_READY',
+        updatedAt: '2026-09-10T10:00:00Z',
+      });
+
+      const mine = await context.http().get(url('/requests/me')).set(auth(user)).expect(200);
+      expect(mine.body.map((item: { address: string }) => item.address)).toEqual([
+        'Смета готова',
+        'Нужны данные',
+        'Свежая, но ход не за клиентом',
+      ]);
+    });
+
+    it('строка списка несёт адрес, площадь, объём работ, пакет и даты', async () => {
+      const user = await createClient(context);
+      const estimateId = await createEstimate(context, { workScope: 'FINISHING' });
+      await context
+        .http()
+        .post(url('/requests'))
+        .set(auth(user))
+        .send({ address: 'Ереван, Маштоца 10', quickEstimateId: estimateId })
+        .expect(201);
+
+      const mine = await context.http().get(url('/requests/me')).set(auth(user)).expect(200);
+      expect(mine.body[0]).toMatchObject({
+        number: expect.any(Number),
+        address: 'Ереван, Маштоца 10',
+        status: 'NEW',
+        createdAt: expect.any(String),
+        updatedAt: expect.any(String),
+        estimate: {
+          areaSqm: 80,
+          workScope: 'FINISHING',
+          finishPackage: 'STANDARD',
+        },
+      });
     });
   });
 
@@ -227,7 +387,7 @@ describe.skipIf(!DATABASE_AVAILABLE)('requests (интеграция)', () => {
         .http()
         .post(url('/requests'))
         .set(auth(owner))
-        .send({})
+        .send({ address: ADDRESS })
         .expect(201);
 
       const response = await context
@@ -245,7 +405,7 @@ describe.skipIf(!DATABASE_AVAILABLE)('requests (интеграция)', () => {
         .http()
         .post(url('/requests'))
         .set(auth(owner))
-        .send({})
+        .send({ address: ADDRESS })
         .expect(201);
 
       await context
@@ -258,7 +418,12 @@ describe.skipIf(!DATABASE_AVAILABLE)('requests (интеграция)', () => {
     it('GET /requests/me показывает только свои заявки', async () => {
       const owner = await createClient(context);
       const stranger = await createClient(context);
-      await context.http().post(url('/requests')).set(auth(owner)).send({}).expect(201);
+      await context
+        .http()
+        .post(url('/requests'))
+        .set(auth(owner))
+        .send({ address: ADDRESS })
+        .expect(201);
 
       const mine = await context.http().get(url('/requests/me')).set(auth(stranger)).expect(200);
       expect(mine.body).toEqual([]);
@@ -271,7 +436,7 @@ describe.skipIf(!DATABASE_AVAILABLE)('requests (интеграция)', () => {
         .http()
         .post(url('/requests'))
         .set(auth(owner))
-        .send({})
+        .send({ address: ADDRESS })
         .expect(201);
       await context.db.query(`UPDATE "requests" SET "status" = 'QUOTE_READY' WHERE "id" = $1`, [
         created.body.id,
@@ -341,6 +506,97 @@ describe.skipIf(!DATABASE_AVAILABLE)('requests (интеграция)', () => {
     });
   });
 
+  describe('карточка заявки в кабинете', () => {
+    /** Доводит заявку клиента до статуса «смета готова» руками сметчика. */
+    async function prepareWithQuote(): Promise<{
+      owner: TestUser;
+      stranger: TestUser;
+      requestId: string;
+    }> {
+      const owner = await createClient(context);
+      const stranger = await createClient(context);
+      const staff = await createStaff(context);
+      const created = await context
+        .http()
+        .post(url('/requests'))
+        .set(auth(owner))
+        .send({ address: ADDRESS, quickEstimateId: await createEstimate(context) })
+        .expect(201);
+      const requestId = created.body.id as string;
+
+      await context
+        .http()
+        .patch(url(`/admin/requests/${requestId}/status`))
+        .set(auth(staff))
+        .send({ to: 'IN_PROGRESS' })
+        .expect(200);
+      await context
+        .http()
+        .post(url(`/admin/requests/${requestId}/quote`))
+        .set(auth(staff))
+        .field('totalAmount', '5000000')
+        .attach('file', Buffer.from('%PDF-1.4 smeta'), {
+          filename: 'quote.pdf',
+          contentType: 'application/pdf',
+        })
+        .expect(201);
+
+      return { owner, stranger, requestId };
+    }
+
+    it('клиент видит смету, сумму и историю статусов своей заявки', async () => {
+      const { owner, requestId } = await prepareWithQuote();
+
+      const response = await context
+        .http()
+        .get(url(`/requests/${requestId}`))
+        .set(auth(owner))
+        .expect(200);
+
+      expect(response.body.status).toBe('QUOTE_READY');
+      expect(response.body.quote).toMatchObject({
+        id: expect.any(String),
+        totalAmount: 5_000_000,
+        createdAt: expect.any(String),
+      });
+      // Ключ файла в хранилище клиенту не отдаётся — только ссылка по запросу.
+      expect(response.body.quote.fileKey).toBeUndefined();
+      expect(response.body.statusLog.map((entry: { toStatus: string }) => entry.toStatus)).toEqual([
+        'NEW',
+        'IN_PROGRESS',
+        'QUOTE_READY',
+      ]);
+      expect(response.body.address).toBe(ADDRESS);
+    });
+
+    it('клиент получает подписанную ссылку на свою смету', async () => {
+      const { owner, stranger, requestId } = await prepareWithQuote();
+
+      const link = await context
+        .http()
+        .get(url(`/requests/${requestId}/quote/download-url`))
+        .set(auth(owner))
+        .expect(200);
+      expect(link.body.url).toContain('memory://download/');
+
+      await context
+        .http()
+        .get(url(`/requests/${requestId}/quote/download-url`))
+        .set(auth(stranger))
+        .expect(403);
+    });
+
+    it('чужую заявку по идентификатору не отдаёт даже со сметой', async () => {
+      const { stranger, requestId } = await prepareWithQuote();
+      const response = await context
+        .http()
+        .get(url(`/requests/${requestId}`))
+        .set(auth(stranger))
+        .expect(403);
+      expect(response.body.error.code).toBe('FORBIDDEN');
+    });
+  });
+
   describe('решение клиента', () => {
     async function prepareQuoteReady(): Promise<{ user: TestUser; requestId: string }> {
       const user = await createClient(context);
@@ -348,7 +604,7 @@ describe.skipIf(!DATABASE_AVAILABLE)('requests (интеграция)', () => {
         .http()
         .post(url('/requests'))
         .set(auth(user))
-        .send({})
+        .send({ address: ADDRESS })
         .expect(201);
       await context.db.query(`UPDATE "requests" SET "status" = 'QUOTE_READY' WHERE "id" = $1`, [
         created.body.id,
@@ -428,7 +684,7 @@ describe.skipIf(!DATABASE_AVAILABLE)('requests (интеграция)', () => {
         .http()
         .post(url('/requests'))
         .set(auth(user))
-        .send({})
+        .send({ address: ADDRESS })
         .expect(201);
 
       const response = await context

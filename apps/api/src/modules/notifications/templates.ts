@@ -171,6 +171,53 @@ function build(event: NotificationEvent): Dictionary {
         },
       };
 
+    case 'REQUEST_COMMENT': {
+      // Формулировка зависит от того, кто написал: клиенту приходит письмо
+      // о сообщении сметчика, на общий ящик — о сообщении клиента.
+      const author = event.byStaff;
+      return {
+        RU: {
+          subject: `RenovateAM — новое сообщение по заявке №${event.requestNumber}`,
+          heading: `Новое сообщение по заявке №${event.requestNumber}`,
+          paragraphs: [
+            author
+              ? `Сметчик написал вам по заявке №${event.requestNumber}.`
+              : `Клиент написал по заявке №${event.requestNumber}.`,
+            event.comment,
+            author
+              ? 'Ответить можно в личном кабинете, в карточке заявки.'
+              : 'Ответить можно в карточке заявки.',
+          ],
+        },
+        HY: {
+          subject: `RenovateAM — նոր հաղորդագրություն №${event.requestNumber} հայտի վերաբերյալ`,
+          heading: `Նոր հաղորդագրություն №${event.requestNumber} հայտի վերաբերյալ`,
+          paragraphs: [
+            author
+              ? `Նախահաշվարկողը գրել է ձեզ №${event.requestNumber} հայտի վերաբերյալ:`
+              : `Հաճախորդը գրել է №${event.requestNumber} հայտի վերաբերյալ:`,
+            event.comment,
+            author
+              ? 'Պատասխանել կարող եք անձնական էջում՝ հայտի քարտում:'
+              : 'Պատասխանել կարող եք հայտի քարտում:',
+          ],
+        },
+        EN: {
+          subject: `RenovateAM — new message on request #${event.requestNumber}`,
+          heading: `New message on request #${event.requestNumber}`,
+          paragraphs: [
+            author
+              ? `The estimator wrote to you about request #${event.requestNumber}.`
+              : `The client wrote about request #${event.requestNumber}.`,
+            event.comment,
+            author
+              ? 'You can reply in your account, on the request card.'
+              : 'You can reply on the request card.',
+          ],
+        },
+      };
+    }
+
     case 'DECISION_MADE': {
       const accepted = event.result === 'ACCEPTED';
       return {

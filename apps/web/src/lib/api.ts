@@ -2,6 +2,7 @@
 import type { ApiLocale } from '@/i18n';
 import type {
   AdminQueueResponse,
+  CommentView,
   DecisionResult,
   DownloadUrlResponse,
   FileKind,
@@ -123,14 +124,29 @@ export const pricingApi = {
 /* -------------------------------- requests --------------------------------- */
 
 export const requestsApi = {
-  create: (payload: { quickEstimateId?: string; comment?: string; fileIds?: string[] }) =>
-    apiRequest<RequestResponse>('/requests', { method: 'POST', body: payload }),
+  create: (payload: {
+    address: string;
+    quickEstimateId?: string;
+    comment?: string;
+    fileIds?: string[];
+  }) => apiRequest<RequestResponse>('/requests', { method: 'POST', body: payload }),
   mine: () => apiRequest<RequestResponse[]>('/requests/me'),
   byId: (id: string) => apiRequest<RequestResponse>(`/requests/${id}`),
+  /** Ссылка на смету своей заявки: у клиента свой маршрут, /admin ему закрыт. */
+  quoteDownloadUrl: (id: string) =>
+    apiRequest<DownloadUrlResponse>(`/requests/${id}/quote/download-url`),
   decide: (
     id: string,
     payload: { result: DecisionResult; reason?: RejectionReason; comment?: string },
   ) => apiRequest<RequestResponse>(`/requests/${id}/decision`, { method: 'POST', body: payload }),
+  /**
+   * Новое сообщение в обсуждении. Маршрут один на обе стороны: сметчик
+   * отвечает из карточки заявки, а не из отдельного места.
+   *
+   * Правки и удаления нет намеренно — таких эндпоинтов не существует.
+   */
+  addComment: (id: string, payload: { text: string; fileIds?: string[] }) =>
+    apiRequest<CommentView>(`/requests/${id}/comments`, { method: 'POST', body: payload }),
 };
 
 /* ---------------------------------- files ---------------------------------- */

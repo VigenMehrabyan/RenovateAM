@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
+  ADDRESS,
   DATABASE_AVAILABLE,
   createClient,
   createEstimate,
@@ -32,7 +33,7 @@ describe.skipIf(!DATABASE_AVAILABLE)('admin, pricing и files (интеграц�
       .http()
       .post(url('/requests'))
       .set(auth(user))
-      .send(estimateId ? { quickEstimateId: estimateId } : {})
+      .send({ address: ADDRESS, ...(estimateId ? { quickEstimateId: estimateId } : {}) })
       .expect(201);
     return response.body.id as string;
   }
@@ -388,7 +389,7 @@ describe.skipIf(!DATABASE_AVAILABLE)('admin, pricing и files (интеграц�
         .http()
         .post(url('/requests'))
         .set(auth(user))
-        .send({ fileIds: [bti, design] })
+        .send({ address: ADDRESS, fileIds: [bti, design] })
         .expect(201);
 
       expect(created.body.files).toHaveLength(2);
@@ -407,7 +408,7 @@ describe.skipIf(!DATABASE_AVAILABLE)('admin, pricing и files (интеграц�
         .http()
         .post(url('/requests'))
         .set(auth(stranger))
-        .send({ fileIds: [foreignFile] })
+        .send({ address: ADDRESS, fileIds: [foreignFile] })
         .expect(201);
       expect(created.body.files).toEqual([]);
     });

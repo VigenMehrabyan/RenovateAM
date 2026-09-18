@@ -122,6 +122,7 @@ model User {
   createdRateVersion RateVersion[]
   statusLogEntries   StatusLogEntry[]    @relation("StatusLogActor")
   files              RequestFile[]       @relation("FileOwner")
+  comments           Comment[]           @relation("CommentAuthor")
 
   /// Дедупликация заявок по телефону в админке.
   @@index([phone])
@@ -253,6 +254,8 @@ model Request {
   userId          String        @map("user_id") @db.Uuid
   quickEstimateId String?       @unique @map("quick_estimate_id") @db.Uuid
   status          RequestStatus @default(NEW)
+  /// Адрес объекта. Принадлежит заявке, а не профилю: объектов у клиента может быть несколько.
+  address         String        @db.VarChar(500)
   needsManual     Boolean       @default(false) @map("needs_manual")
   /// Комментарий клиента при создании либо сметчика при статусе NEEDS_INFO.
   comment         String?       @db.VarChar(2000)
@@ -265,11 +268,14 @@ model Request {
   quotes        Quote[]
   decision      Decision?
   statusLog     StatusLogEntry[]
+  comments      Comment[]
 
   /// Очередь сметчика: фильтр по статусу + сортировка по дате.
   @@index([status, createdAt])
-  /// Заявки конкретного пользователя в кабинете.
+  /// Окно антидубля «не более трёх заявок в час».
   @@index([userId, createdAt])
+  /// Список кабинета: сортировка по дате последнего изменения.
+  @@index([userId, updatedAt])
   @@map("requests")
 }
 
@@ -308,6 +314,77 @@ model Decision {
   @@map("decisions")
 }
 
+/// @owner: requests — PDF-смета, загруженная сметчиком. Актуальна последняя (isCurrent).
+///
+/// Смета — часть агрегата «заявка»: без неё заявка не переходит в QUOTE_READY,
+/// и клиент обязан видеть её в своей карточке. Загружает смету сметчик через
+/// модуль admin, но хранение и чтение принадлежат requests — иначе кабинет
+/// клиента пришлось бы собирать из админского модуля.
+model Quote {
+  id          String   @id @default(uuid()) @db.Uuid
+  requestId   String   @map("request_id") @db.Uuid
+  authorId    String?  @map("author_id") @db.Uuid
+  /// Ключ PDF-сметы в R2.
+  fileKey     String   @unique @map("file_key") @db.VarChar(500)
+  /// Итоговая сумма сметы, целое число драмов.
+  totalAmount Int      @map("total_amount")
+  isCurrent   Boolean  @default(true) @map("is_current")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  request Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  author  User?   @relation("QuoteAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([requestId, createdAt])
+  @@index([authorId])
+  @@map("quotes")
+}
+
+/// @owner: requests — сообщение обсуждения внутри заявки.
+///
+/// Лента append-only: правки и удаления нет ни в API, ни в коде. Переписка
+/// о деньгах — документ; если клиент и компания разошлись в понимании,
+/// лента обязана показывать, кто что сказал. Опечатка исправляется
+/// следующим сообщением.
+model Comment {
+  id         String   @id @default(uuid()) @db.Uuid
+  requestId  String   @map("request_id") @db.Uuid
+  /// Автор. set null: удаление учётной записи не стирает переписку.
+  authorId   String?  @map("author_id") @db.Uuid
+  /// Роль автора НА МОМЕНТ написания, а не текущая роль учётной записи.
+  /// Сотрудник может уволиться, роль — смениться; лента обязана остаться
+  /// читаемой («Сметчик, 24 августа»), а не превратиться в пустое место.
+  authorRole UserRole @map("author_role")
+  /// До 4000 символов — тот же лимит проверяет DTO и считает счётчик в UI.
+  text       String   @db.VarChar(4000)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  request Request       @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  author  User?         @relation("CommentAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  files   CommentFile[]
+
+  /// Лента заявки в хронологическом порядке.
+  @@index([requestId, createdAt])
+  @@index([authorId, createdAt])
+  @@map("comments")
+}
+
+/// @owner: requests — вложение сообщения.
+///
+/// Связь, а не копия файла: сам файл принадлежит модулю `files` и живёт
+/// в его таблице. Здесь только ссылка — поэтому связи с моделью RequestFile
+/// в схеме нет намеренно, внешний ключ задаётся миграцией. Метаданные
+/// вложения requests берёт публичным вызовом FilesPublicService.
+model CommentFile {
+  commentId String @map("comment_id") @db.Uuid
+  fileId    String @map("file_id") @db.Uuid
+
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@id([commentId, fileId])
+  @@index([fileId])
+  @@map("comment_files")
+}
+
 // ---------------------------------------------------------------------------
 // files
 // ---------------------------------------------------------------------------
@@ -337,28 +414,4 @@ model RequestFile {
   @@index([userId, requestId])
   @@index([uploadedAt])
   @@map("files")
-}
-
-// ---------------------------------------------------------------------------
-// admin
-// ---------------------------------------------------------------------------
-
-/// @owner: admin — PDF-смета, загруженная сметчиком. Актуальна последняя (isCurrent).
-model Quote {
-  id          String   @id @default(uuid()) @db.Uuid
-  requestId   String   @map("request_id") @db.Uuid
-  authorId    String?  @map("author_id") @db.Uuid
-  /// Ключ PDF-сметы в R2.
-  fileKey     String   @unique @map("file_key") @db.VarChar(500)
-  /// Итоговая сумма сметы, целое число драмов.
-  totalAmount Int      @map("total_amount")
-  isCurrent   Boolean  @default(true) @map("is_current")
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-
-  request Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  author  User?   @relation("QuoteAuthor", fields: [authorId], references: [id], onDelete: SetNull)
-
-  @@index([requestId, createdAt])
-  @@index([authorId])
-  @@map("quotes")
 }
