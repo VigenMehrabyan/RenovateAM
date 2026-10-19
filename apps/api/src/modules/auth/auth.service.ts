@@ -48,7 +48,7 @@ export class AuthService implements AuthPublicService {
 
   // --- регистрация и верификация ------------------------------------------
 
-  async register(dto: RegisterDto): Promise<{ userId: string; emailVerificationSent: true }> {
+  async register(dto: RegisterDto): Promise<{ userId: string; emailVerificationSent: boolean }> {
     const email = dto.email.toLowerCase();
     const existing = await this.repository.findUserByEmail(email);
     if (existing) {
@@ -74,26 +74,38 @@ export class AuthService implements AuthPublicService {
       await this.pricing.attachEstimatesToUser(dto.quickEstimateIds, user.id);
     }
 
-    await this.issueVerificationEmail(user);
+    // Аккаунт уже создан: письмо не ушло — регистрация всё равно состоялась,
+    // но ответ об этом не врёт (`emailVerificationSent: false`).
+    const sent = await this.issueVerificationEmail(user);
     this.logger.log(`event=user_registered user=${user.id} locale=${user.locale}`);
-    return { userId: user.id, emailVerificationSent: true };
+    return { userId: user.id, emailVerificationSent: sent };
   }
 
-  /** Выпускает токен верификации и отправляет письмо. */
-  private async issueVerificationEmail(user: User): Promise<void> {
+  /**
+   * Выпускает токен верификации и отправляет письмо.
+   * @returns принял ли канал письмо к доставке.
+   */
+  private async issueVerificationEmail(user: User): Promise<boolean> {
     const token = generateToken();
     await this.repository.createVerificationToken(
       user.id,
       sha256(token),
       new Date(Date.now() + VERIFICATION_TTL_MS),
     );
-    await this.notifications.send({
+    const { accepted } = await this.notifications.send({
       type: 'EMAIL_VERIFICATION',
       to: user.email,
       locale: user.locale,
       link: `${this.config.appUrl}/verify?token=${token}`,
     });
+    if (!accepted) {
+      // Отдельное событие вместо email_verification_sent: в логах должно быть
+      // видно, что письма не было, иначе воронка верификации врёт.
+      this.logger.error(`event=email_verification_failed user=${user.id}`);
+      return false;
+    }
     this.logger.log(`event=email_verification_sent user=${user.id}`);
+    return true;
   }
 
   async verifyEmail(rawToken: string): Promise<{ verified: true }> {
@@ -144,7 +156,15 @@ export class AuthService implements AuthPublicService {
       });
     }
 
-    await this.issueVerificationEmail(user);
+    // Токен уже выпущен, поэтому следующая попытка упрётся в окно 60 секунд —
+    // так и надо: ломящийся почтовый провайдер не должен получать шквал запросов.
+    if (!(await this.issueVerificationEmail(user))) {
+      throw new AppException(
+        502,
+        ErrorCode.EMAIL_DELIVERY_FAILED,
+        'Verification email was not accepted by the mail channel',
+      );
+    }
     return {
       sent: true,
       nextAllowedAt: new Date(Date.now() + RESEND_COOLDOWN_MS).toISOString(),

@@ -20,12 +20,23 @@ export class MemoryEmailChannel implements NotificationChannel {
   readonly name = 'memory-email';
   private readonly logger = new Logger(MemoryEmailChannel.name);
   private readonly messages: SentMessage[] = [];
+  /**
+   * Причина отказа канала. По умолчанию `null` — канал работает как раньше.
+   * Включается только из тестов (`failDelivery`), чтобы проверить, что API
+   * честно отвечает «письмо не ушло». Боевая конфигурация этот канал не
+   * создаёт вовсе (MAIL_DRIVER=resend), так что на прод переключатель не влияет.
+   */
+  private failure: string | null = null;
 
   supports(): boolean {
     return true;
   }
 
   async send(event: NotificationEvent): Promise<void> {
+    if (this.failure !== null) {
+      // Ведёт себя как настоящий канал при отказе провайдера: бросает.
+      return Promise.reject(new Error(this.failure));
+    }
     const rendered = renderTemplate(event);
     this.messages.push({ ...rendered, to: event.to, type: event.type, sentAt: new Date() });
     this.logger.debug(
@@ -45,7 +56,21 @@ export class MemoryEmailChannel implements NotificationChannel {
     return [...this.messages].reverse().find((message) => message.to === to);
   }
 
+  /**
+   * Заставляет канал отклонять письма — для тестов честности ответов API.
+   * Сбрасывается `deliverNormally()` и `clear()`.
+   */
+  failDelivery(reason = 'почтовый канал недоступен (тест)'): void {
+    this.failure = reason;
+  }
+
+  /** Возвращает канал в рабочее состояние. */
+  deliverNormally(): void {
+    this.failure = null;
+  }
+
   clear(): void {
     this.messages.length = 0;
+    this.failure = null;
   }
 }

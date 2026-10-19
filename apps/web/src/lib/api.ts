@@ -38,8 +38,10 @@ export interface RegisterPayload {
 }
 
 export const authApi = {
+  // emailVerificationSent=false — аккаунт создан, но письмо почтовый канал
+  // не принял: интерфейс обязан сказать об этом, а не отправлять ждать письма.
   register: (payload: RegisterPayload) =>
-    apiRequest<{ userId: string; emailVerificationSent: true }>('/auth/register', {
+    apiRequest<{ userId: string; emailVerificationSent: boolean }>('/auth/register', {
       method: 'POST',
       body: payload,
       skipRefresh: true,
