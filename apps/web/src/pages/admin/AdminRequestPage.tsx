@@ -73,9 +73,13 @@ export function AdminRequestPage(): JSX.Element {
             <StatusBadge status={data.status} label={t(`request.status.${data.status}`)} />
           </div>
 
+          {/*
+            Тот же текст, что и в кабинете: его написал клиент при создании
+            заявки. Без подписи сметчик принимал его за запись коллеги.
+          */}
           {data.comment ? (
-            <Alert tone="info" className="mt-4">
-              {data.comment}
+            <Alert tone="info" className="mt-4" title={t('cabinet.clientCommentTitle')}>
+              <p className="user-text">{data.comment}</p>
             </Alert>
           ) : null}
         </div>

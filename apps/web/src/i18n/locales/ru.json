@@ -332,7 +332,7 @@
     "quoteTotal": "Итоговая сумма",
     "quoteDownload": "Скачать смету (PDF)",
     "noQuote": "Смета ещё не загружена.",
-    "commentTitle": "Комментарий сметчика",
+    "clientCommentTitle": "Комментарий клиента к заявке",
     "filesTitle": "Файлы заявки",
     "estimateTitle": "Быстрый расчёт",
     "decision": {

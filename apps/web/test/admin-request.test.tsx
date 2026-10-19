@@ -137,4 +137,20 @@ describe('карточка заявки в админке', () => {
     expect(within(select).getByRole('option', { name: 'Смета готова' })).not.toBeDisabled();
     expect(screen.queryByText(/сначала загрузите PDF-смету/)).not.toBeInTheDocument();
   });
+
+  /**
+   * Регрессия: комментарий клиента к заявке выводился без подписи, и сметчик
+   * принимал его за запись коллеги.
+   */
+  it('комментарий из заявки подписан как комментарий клиента', async () => {
+    mockCard({ comment: 'Готово' });
+    renderWithProviders(<App />, {
+      route: '/admin/requests/r1',
+      user: makeUser({ role: 'ESTIMATOR' }),
+    });
+
+    expect(await screen.findByText('Комментарий клиента к заявке')).toBeInTheDocument();
+    expect(screen.getByText('Готово')).toBeInTheDocument();
+    expect(screen.queryByText(/Комментарий сметчика/)).not.toBeInTheDocument();
+  });
 });

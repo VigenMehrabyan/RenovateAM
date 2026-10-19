@@ -332,7 +332,7 @@
     "quoteTotal": "Ընդհանուր արժեքը",
     "quoteDownload": "Ներբեռնել նախահաշիվը (PDF)",
     "noQuote": "Նախահաշիվը դեռ վերբեռնված չէ։",
-    "commentTitle": "Մասնագետի մեկնաբանությունը",
+    "clientCommentTitle": "Հաճախորդի մեկնաբանությունը հայտին",
     "filesTitle": "Հայտի ֆայլերը",
     "estimateTitle": "Արագ հաշվարկ",
     "decision": {

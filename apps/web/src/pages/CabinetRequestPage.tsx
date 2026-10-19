@@ -111,7 +111,7 @@ function BackLink(): JSX.Element {
   );
 }
 
-/** Шапка карточки: адрес объекта, статус и комментарий сметчика. */
+/** Шапка карточки: адрес объекта, статус и комментарий клиента к заявке. */
 function RequestHeader({
   request,
   locale,
@@ -135,9 +135,14 @@ function RequestHeader({
         {t('cabinet.createdAt')}: {formatDateTime(request.createdAt, locale)}
       </p>
 
+      {/*
+        `request.comment` — текст, который клиент написал сам при создании
+        заявки. Подпись «комментарий сметчика» приписывала его сотруднику:
+        клиент читал собственные слова как ответ компании.
+      */}
       {request.comment ? (
-        <Alert tone="info" className="mt-4" title={t('cabinet.commentTitle')}>
-          {request.comment}
+        <Alert tone="info" className="mt-4" title={t('cabinet.clientCommentTitle')}>
+          <p className="user-text">{request.comment}</p>
         </Alert>
       ) : null}
     </div>

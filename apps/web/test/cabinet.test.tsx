@@ -159,6 +159,22 @@ describe('карточка заявки в кабинете', () => {
    * Регрессия: API отдавал параметры вложенно (`estimate.input.*`), фронт ждал
    * плоско — и вместо «Квартира» в карточке стоял ключ i18n.
    */
+  /**
+   * Регрессия: `request.comment` — это текст, который клиент написал сам при
+   * создании заявки, а блок был подписан «Комментарий сметчика». Клиент читал
+   * собственное «Готово» как ответ компании, хотя в обсуждении ниже то же
+   * сообщение стояло под его именем.
+   */
+  it('комментарий из заявки подписан как комментарий клиента, а не сметчика', async () => {
+    mockApi([makeRequest({ comment: 'Готово' })]);
+    renderWithProviders(<App />, { route: '/cabinet/requests/r1', user: makeUser() });
+
+    expect(await screen.findByText('Комментарий клиента к заявке')).toBeInTheDocument();
+    expect(screen.getByText('Готово')).toBeInTheDocument();
+    expect(screen.queryByText(/Комментарий сметчика/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Мասնагետ/)).not.toBeInTheDocument();
+  });
+
   it('параметры расчёта выводятся подписями, а не ключами', async () => {
     mockApi([withQuote]);
     renderWithProviders(<App />, { route: '/cabinet/requests/r1', user: makeUser() });

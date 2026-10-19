@@ -332,7 +332,7 @@
     "quoteTotal": "Total amount",
     "quoteDownload": "Download quote (PDF)",
     "noQuote": "The quote has not been uploaded yet.",
-    "commentTitle": "Estimator's comment",
+    "clientCommentTitle": "Client's comment on the request",
     "filesTitle": "Request files",
     "estimateTitle": "Instant estimate",
     "decision": {
