@@ -67,9 +67,19 @@ export function NewRequestPage(): JSX.Element {
   }, [contactAddress, addressTouched]);
   const totalCount = bti.length + design.length;
   const uploading = [...bti, ...design].some((item) => item.status === 'uploading');
+  /**
+   * Хотя бы один файл не доехал до хранилища. Отправлять заявку в таком виде
+   * нельзя: клиент увидел бы «заявка отправлена», а вложения не было бы ни
+   * в заявке, ни в карточке сметчика.
+   */
+  const uploadFailed = [...bti, ...design].some((item) => item.status === 'error');
 
   const submit = async (): Promise<void> => {
     if (submitting || uploading || !verified) return;
+    if (uploadFailed) {
+      setError(t('request.new.filesFailed'));
+      return;
+    }
     const validAddress = requestAddressSchema.safeParse(address);
     if (!validAddress.success) {
       setAddressError(

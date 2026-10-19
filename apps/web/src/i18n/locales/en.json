@@ -278,7 +278,8 @@
       "submit": "Send request",
       "submitted": "Request sent",
       "addressLabel": "Property address",
-      "addressHint": "Prefilled with the contact address from your profile — change it if the renovation is at another property"
+      "addressHint": "Prefilled with the contact address from your profile — change it if the renovation is at another property",
+      "filesFailed": "Some files did not upload. Remove them from the list and upload them again, otherwise the request will be submitted without attachments."
     },
     "files": {
       "btiTitle": "BTI floor plan",
@@ -297,7 +298,8 @@
         "unsupportedType": "Format not supported. Upload PDF, JPG, PNG or DWG",
         "tooLarge": "The file is over 25 MB. Compress it or split it into parts",
         "tooMany": "At most 10 files per request",
-        "empty": "The file is empty"
+        "empty": "The file is empty",
+        "network": "The file did not reach storage. Remove it and try again — a submitted request will not include it."
       }
     },
     "status": {
