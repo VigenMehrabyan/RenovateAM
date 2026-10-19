@@ -227,7 +227,9 @@
       "phoneHint": "Формат Армении: +374XXXXXXXX",
       "address": "Адрес объекта",
       "password": "Пароль",
-      "passwordHint": "Не короче 8 символов, минимум одна буква и одна цифра"
+      "passwordHint": "Не короче 8 символов, минимум одна буква и одна цифра",
+      "passwordShow": "Показать пароль",
+      "passwordHide": "Скрыть пароль"
     },
     "validation": {
       "fullNameRequired": "Укажите ФИО",

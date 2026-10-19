@@ -123,6 +123,24 @@
   .field-error {
     @apply mt-2 text-sm text-danger-500;
   }
+  /* Переключатель видимости пароля: внутри поля, у правого края.
+     `inset-y-0` вместо `h-full` — высота берётся от самого поля, а не от
+     обёртки с автовысотой. 48 px по ширине и вся высота поля (50 px) дают
+     площадь нажатия не меньше 44 px даже на телефоне. */
+  .password-toggle {
+    @apply absolute inset-y-0 right-1 inline-flex w-12 items-center justify-center text-ink-600;
+    border-radius: 10px;
+    transition: color 180ms;
+  }
+  .password-toggle:hover {
+    color: #0e2b25;
+  }
+  /* Обводка уводится внутрь: общий `outline-offset: 4px` из слоя base вылез бы
+     за границу поля и слился с его собственной обводкой фокуса. */
+  .password-toggle:focus-visible {
+    outline: 2px solid #0e2b25;
+    outline-offset: -4px;
+  }
   .surface,
   .lift-card,
   .step-card,

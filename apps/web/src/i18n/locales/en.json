@@ -227,7 +227,9 @@
       "phoneHint": "Armenian format: +374XXXXXXXX",
       "address": "Property address",
       "password": "Password",
-      "passwordHint": "At least 8 characters, one letter and one digit"
+      "passwordHint": "At least 8 characters, one letter and one digit",
+      "passwordShow": "Show password",
+      "passwordHide": "Hide password"
     },
     "validation": {
       "fullNameRequired": "Enter your full name",
