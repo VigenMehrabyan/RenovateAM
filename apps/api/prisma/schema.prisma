@@ -114,8 +114,9 @@ model User {
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  verificationTokens VerificationToken[]
-  refreshTokens      RefreshToken[]
+  verificationTokens  VerificationToken[]
+  passwordResetTokens PasswordResetToken[]
+  refreshTokens       RefreshToken[]
   quickEstimates     QuickEstimate[]
   requests           Request[]
   authoredQuotes     Quote[]             @relation("QuoteAuthor")
@@ -146,6 +147,28 @@ model VerificationToken {
   @@index([userId, createdAt])
   @@index([expiresAt])
   @@map("verification_tokens")
+}
+
+/// @owner: auth — одноразовые ссылки восстановления пароля, TTL 60 минут.
+///
+/// Отдельная таблица, а не признак в VerificationToken: ссылка восстановления
+/// меняет пароль и гасит все сессии, ссылка верификации только подтверждает
+/// адрес. В общей таблице забытый фильтр по типу превратил бы одну в другую.
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  /// SHA-256 от токена из письма; сырой токен в БД не хранится.
+  tokenHash String    @unique @map("token_hash") @db.Char(64)
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Гашение прочих неиспользованных ссылок пользователя и диагностика.
+  @@index([userId, createdAt])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
 }
 
 /// @owner: auth — семейства refresh-токенов для ротации и отзыва.

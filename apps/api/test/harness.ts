@@ -27,6 +27,7 @@ const TABLES = [
   'pricing_rates',
   'rate_versions',
   'refresh_tokens',
+  'password_reset_tokens',
   'verification_tokens',
   'users',
 ];
@@ -189,6 +190,15 @@ export function extractVerificationToken(context: TestContext, email: string): s
   if (!message) throw new Error(`письмо верификации для ${email} не отправлено`);
   const match = /token=([A-Za-z0-9_-]+)/.exec(message.text);
   if (!match?.[1]) throw new Error(`в письме нет ссылки верификации: ${message.text}`);
+  return match[1];
+}
+
+/** Достаёт токен восстановления пароля из письма, отправленного в память. */
+export function extractResetToken(context: TestContext, email: string): string {
+  const message = context.mail.lastTo(email);
+  if (!message) throw new Error(`письмо восстановления для ${email} не отправлено`);
+  const match = /\/reset\?token=([A-Za-z0-9_-]+)/.exec(message.text);
+  if (!match?.[1]) throw new Error(`в письме нет ссылки восстановления: ${message.text}`);
   return match[1];
 }
 

@@ -3,7 +3,16 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { Alert, Button, Field, Page, PageTitle, TextInput, describedBy } from '@/components/ui';
+import {
+  Alert,
+  Button,
+  Field,
+  Page,
+  PageTitle,
+  PasswordInput,
+  TextInput,
+  describedBy,
+} from '@/components/ui';
 import { isStaff, useAuth } from '@/features/auth/auth-context';
 import { useErrorMessage } from '@/lib/use-error-message';
 import { loginSchema } from '@/lib/validation';
@@ -65,15 +74,25 @@ export function LoginPage(): JSX.Element {
         </Field>
 
         <Field id="password" label={t('auth.fields.password')} error={passwordError}>
-          <TextInput
+          <PasswordInput
             id="password"
-            type="password"
             autoComplete="current-password"
+            showLabel={t('auth.fields.passwordShow')}
+            hideLabel={t('auth.fields.passwordHide')}
             aria-invalid={Boolean(passwordError)}
             aria-describedby={describedBy('password', undefined, passwordError)}
             {...register('password')}
           />
         </Field>
+
+        {/* Ссылка внутри формы, рядом с полем пароля: человек вспоминает о ней
+            именно здесь, а не прочитав всю страницу до конца. */}
+        <Link
+          to="/forgot"
+          className="touch-target -mt-1 inline-flex items-center self-start text-sm text-accent-500 underline underline-offset-4"
+        >
+          {t('auth.login.forgotLink')}
+        </Link>
 
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting ? t('common.sending') : t('auth.login.submit')}

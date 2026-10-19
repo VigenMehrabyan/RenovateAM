@@ -451,14 +451,15 @@ export class RequestsService implements RequestsPublicService {
 
     // Смету нельзя объявить готовой, пока её нет. Таблицей quotes владеет этот
     // же модуль, поэтому инвариант проверяется здесь, а не со слов вызывающего.
+    //
+    // Код отдельный: переход IN_PROGRESS → QUOTE_READY разрешён матрицей, не
+    // выполнено только условие. Под кодом INVALID_STATUS_TRANSITION сметчик
+    // читал «такой переход статуса запрещён» и не понимал, что от него нужно
+    // всего-то загрузить смету.
     if (command.to === RequestStatus.QUOTE_READY) {
       const quote = await this.repository.findCurrentQuote(request.id);
       if (!quote) {
-        throw new AppException(
-          409,
-          ErrorCode.INVALID_STATUS_TRANSITION,
-          'Request has no current quote',
-        );
+        throw new AppException(409, ErrorCode.QUOTE_REQUIRED, 'Request has no current quote');
       }
     }
 

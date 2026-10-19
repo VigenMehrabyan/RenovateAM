@@ -10,6 +10,12 @@ export const NOTIFICATIONS_PUBLIC_SERVICE = 'NOTIFICATIONS_PUBLIC_SERVICE';
  */
 export type NotificationEvent =
   | { type: 'EMAIL_VERIFICATION'; to: string; locale: Locale; link: string }
+  /**
+   * Ссылка восстановления пароля. Исход доставки вызывающему не сообщается
+   * иначе, чем через лог: «письмо не ушло» в ответе API само было бы
+   * признаком существования аккаунта (ARCHITECTURE §6.5).
+   */
+  | { type: 'PASSWORD_RESET'; to: string; locale: Locale; link: string }
   | { type: 'REQUEST_SUBMITTED'; to: string; locale: Locale; requestNumber: number }
   | {
       type: 'REQUEST_NEEDS_INFO';

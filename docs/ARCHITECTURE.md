@@ -111,7 +111,7 @@ export class RequestsModule {}
 
 | Модуль | Ответственность | Владеет таблицами | Зависит от |
 |---|---|---|---|
-| `auth` | Регистрация, вход, JWT, верификация e-mail, роли | `users`, `verification_tokens`, `refresh_tokens` | `notifications` |
+| `auth` | Регистрация, вход, JWT, верификация e-mail, восстановление пароля, роли | `users`, `verification_tokens`, `refresh_tokens`, `password_reset_tokens` | `notifications` |
 | `pricing` | Ставки, версионирование, движок расчёта, быстрые расчёты | `rate_versions`, `pricing_rates`, `quick_estimates` | — |
 | `requests` | Заявки, статусная машина, журнал, решения клиента, сметы, обсуждение | `requests`, `status_log`, `decisions`, `quotes`, `comments`, `comment_files` | `pricing`, `files`, `notifications`, `auth` |
 | `files` | Подписанные ссылки, метаданные файлов, валидация | `files` | `auth` (только гейт верификации) |
@@ -211,6 +211,7 @@ export interface TransitionCommand {
 // modules/notifications/public/index.ts
 export type NotificationEvent =
   | { type: 'EMAIL_VERIFICATION'; to: string; locale: Locale; link: string }
+  | { type: 'PASSWORD_RESET'; to: string; locale: Locale; link: string }
   | { type: 'REQUEST_SUBMITTED'; to: string; locale: Locale; requestNumber: number }
   | { type: 'REQUEST_NEEDS_INFO'; to: string; locale: Locale; requestNumber: number; comment: string }
   | { type: 'QUOTE_READY'; to: string; locale: Locale; requestNumber: number }
@@ -334,6 +335,7 @@ PostgreSQL, Prisma. Полная схема — [`apps/api/prisma/schema.prisma`
 | `users` | auth | Учётные записи всех ролей |
 | `verification_tokens` | auth | Одноразовые ссылки верификации e-mail |
 | `refresh_tokens` | auth | Ротация и отзыв refresh-токенов |
+| `password_reset_tokens` | auth | Одноразовые ссылки восстановления пароля |
 | `rate_versions` | pricing | Версии набора ставок |
 | `pricing_rates` | pricing | Ставки и коэффициенты внутри версии |
 | `quick_estimates` | pricing | Сохранённые быстрые расчёты, в т.ч. анонимные |
@@ -396,6 +398,40 @@ PostgreSQL, Prisma. Полная схема — [`apps/api/prisma/schema.prisma`
 Индексы: `(user_id, revoked_at)`, `(family_id)`, `(expires_at)`.
 
 Таблицы нет в списке MVP §5 — добавлена как следствие требования «JWT + refresh» из README: без хранения отозвать refresh невозможно.
+
+### 4.3a `password_reset_tokens` (auth)
+
+| Поле | Тип | Ограничения |
+|---|---|---|
+| `id` | uuid | PK |
+| `user_id` | uuid | FK → users, **on delete cascade** |
+| `token_hash` | char(64) | **unique**, SHA-256 от токена из письма |
+| `expires_at` | timestamptz | not null, **+60 минут** |
+| `used_at` | timestamptz | null = не использован |
+| `created_at` | timestamptz | |
+
+Индексы: `(user_id, created_at)` — гашение прочих ссылок пользователя и
+диагностика; `(expires_at)` — чистка просроченных.
+
+Таблица отдельная, а не колонка-признак в `verification_tokens`: у ссылок разные
+полномочия. Верификация подтверждает адрес, восстановление **меняет пароль и
+гасит все сессии**. Общая таблица означала бы, что ошибка в одном запросе (забытый
+фильтр по типу) превращает ссылку верификации в ссылку смены пароля. Разные
+таблицы делают такую ошибку невозможной, а не маловероятной.
+
+**TTL — 60 минут.** Ссылка восстановления сильнее ссылки верификации: кто её
+открыл, тот владеет аккаунтом. Письмо живёт в ящике долго, пересылается, попадает
+в общие ящики и в резервные копии почтового клиента — 24 часа верификации здесь
+были бы слишком широким окном. 15 минут, наоборот, не хватает реальному человеку:
+письмо читают на другом устройстве, провайдер задерживает доставку, человек
+отвлекается. 60 минут закрывают обычную задержку доставки и при этом оставляют
+окно злоупотребления в пределах одного сеанса работы с почтой. Значение —
+константа `PASSWORD_RESET_TTL_MS` в `auth.service.ts`; смена TTL не требует
+миграции, потому что срок хранится в строке, а не вычисляется при чтении.
+
+Как и у верификации, в БД лежит **только SHA-256** от токена: дамп базы не даёт
+возможности сменить пароль чужому аккаунту. Сам токен не пишется ни в логи, ни в
+тексты ошибок — ни одного `logger` с токеном в `auth.service.ts` нет.
 
 ### 4.4 `rate_versions` и `pricing_rates` (pricing)
 
@@ -577,6 +613,26 @@ interface VerifyResponse { verified: true }
 interface ResendResponse { sent: true; nextAllowedAt: string }
 // 202 · 409 ALREADY_VERIFIED · 429 RESEND_TOO_SOON (Retry-After в секундах)
 // · 502 EMAIL_DELIVERY_FAILED — канал отказался принять письмо (успехом не прикрываемся)
+```
+
+```ts
+// POST /auth/forgot-password — public
+interface ForgotPasswordDto { email: string }
+interface ForgotPasswordResponse { accepted: true }
+// 202 всегда — и для существующего адреса, и для любого другого:
+// статус, тело и время ответа не зависят от наличия аккаунта (см. §6.5).
+// 422 VALIDATION_FAILED (адрес не похож на e-mail) · 429 RATE_LIMITED
+```
+
+```ts
+// POST /auth/reset-password — public
+interface ResetPasswordDto {
+  token: string;
+  password: string;      // те же правила, что при регистрации
+}
+interface ResetPasswordResponse { reset: true }
+// 200 · 400 TOKEN_INVALID · 409 TOKEN_ALREADY_USED · 410 TOKEN_EXPIRED
+// · 422 VALIDATION_FAILED · 429 RATE_LIMITED
 ```
 
 ```ts
@@ -781,7 +837,7 @@ interface AdminRequestsResponse {
 // PATCH /admin/requests/:id/status — staff
 interface ChangeStatusDto { to: RequestStatus; comment?: string } // обязателен при NEEDS_INFO
 // 200 → RequestResponse
-// 409 INVALID_STATUS_TRANSITION · 422 COMMENT_REQUIRED
+// 409 INVALID_STATUS_TRANSITION · 409 QUOTE_REQUIRED (QUOTE_READY без сметы) · 422 COMMENT_REQUIRED
 
 // POST /admin/requests/:id/quote — staff, multipart/form-data
 // поля: file (PDF, ≤25 МБ), totalAmount (int, драмы)
@@ -815,6 +871,8 @@ interface UpdateRatesResponse { versionId: string; createdAt: string }
 | `POST /auth/register` | public | Регистрация + письмо верификации |
 | `POST /auth/verify` | public | Подтверждение e-mail по токену |
 | `POST /auth/resend-verification` | client | Повторное письмо, не чаще 1/60 с |
+| `POST /auth/forgot-password` | public | Письмо со ссылкой восстановления; ответ не зависит от наличия аккаунта |
+| `POST /auth/reset-password` | public | Новый пароль по токену, отзыв всех сессий |
 | `POST /auth/login` | public | access в теле, refresh в cookie |
 | `POST /auth/refresh` | cookie | Ротация пары токенов |
 | `POST /auth/logout` | public | Отзыв цепочки refresh, очистка cookie |
@@ -885,6 +943,45 @@ Access — в памяти: XSS не вытащит его из `localStorage`, 
 **Антиспам повторной отправки.** `POST /auth/resend-verification`: если `max(created_at)` токенов пользователя моложе 60 секунд → `429 RESEND_TOO_SOON` с `Retry-After` и `nextAllowedAt` в теле. Окно считается по БД, а не по памяти процесса, — на Railway может работать несколько инстансов. Дополнительно суточный лимит 10 писем на адрес (защита от использования как почтового ретранслятора). Ответ на `resend` не зависит от того, существует ли адрес, — чтобы эндпоинт не работал как перечислитель пользователей.
 
 Пароли — bcrypt, cost 12 (требование MVP: ≥10). Ответ `/auth/login` одинаков для «нет такого e-mail» и «неверный пароль»: `401 INVALID_CREDENTIALS`.
+
+### 6.5 Поток восстановления пароля
+
+1. `POST /auth/forgot-password` → адрес приводится к нижнему регистру, ищется в
+   `users`. Если пользователь найден — генерируется токен
+   `randomBytes(32).toString('base64url')`, в `password_reset_tokens` пишется его
+   SHA-256 с `expires_at = now() + 60 мин`. Ответ — **всегда** `202 { accepted: true }`.
+2. `notifications.send({ type: 'PASSWORD_RESET', link: `${APP_URL}/reset?token=…` })`.
+3. `POST /auth/reset-password` → хеширует токен, ищет запись. Проверки в том же
+   порядке, что у верификации: не найдено → `400 TOKEN_INVALID`; `used_at != null`
+   → `409 TOKEN_ALREADY_USED`; `expires_at < now()` → `410 TOKEN_EXPIRED`. Успех: в
+   одной транзакции `users.password_hash` = новый bcrypt-хеш, `used_at = now()`,
+   **все прочие неиспользованные ссылки восстановления этого пользователя гасятся**,
+   **все активные refresh-токены пользователя отзываются**.
+4. Клиент отправляет человека на вход: входит он уже новым паролем, а сессии,
+   открытые старым, мертвы.
+
+**Почему сессии гасятся.** Смену пароля запрашивает либо хозяин аккаунта, либо
+тот, кто аккаунт уже увёл. В обоих случаях правильный исход один: живым остаётся
+только тот, кто знает новый пароль. Оставить чужую сессию в живых — значит
+сделать восстановление пароля бесполезным именно в том случае, для которого оно
+и нужно. Реализация — `revokeAllUserRefreshTokens` в той же транзакции, что и
+смена хеша: пароль не может оказаться новым при живых старых сессиях.
+
+**Отсутствие перечисления аккаунтов.** Статус (`202`) и тело (`{ accepted: true }`)
+одинаковы для любого адреса. Отдельно закрыта утечка по времени: дорогая
+асимметричная часть — обращение к почтовому провайдеру — **вынесена за пределы
+ответа**. Сервис выпускает токен, запускает отправку без `await` и отвечает сразу;
+исход доставки уходит в лог, а не в ответ. Поэтому ответ для существующего и
+несуществующего адреса отличается одной вставкой в БД (единицы миллисекунд,
+ниже сетевого шума), а не секундами ожидания SMTP. Сообщить «письмо не ушло», как
+это делает `resend-verification`, здесь нельзя: такой ответ сам был бы признаком
+существования аккаунта.
+
+**Частота.** `forgot-password` — 5 запросов в минуту на источник (строже, чем
+`login`: каждый запрос отправляет письмо), `reset-password` — 10. Отдельного
+бизнес-троттлинга по пользователю, как у `resend-verification`, здесь нет
+намеренно: он требовал бы ветвления по существованию аккаунта, то есть вернул бы
+ровно ту утечку, которую закрывает `202` на любой адрес.
 
 ---
 
@@ -960,7 +1057,7 @@ Bucket приватный: публичного URL у объекта нет в�
 | `NEW` | `NEEDS_INFO` | Сметчик, админ | Журнал + письмо клиенту с комментарием (комментарий обязателен) |
 | `IN_PROGRESS` | `NEEDS_INFO` | Сметчик, админ | То же |
 | `NEEDS_INFO` | `IN_PROGRESS` | Сметчик, админ | Клиент дослал данные. Журнал |
-| `IN_PROGRESS` | `QUOTE_READY` | Сметчик, админ | Разрешён только при наличии `quotes.is_current`. Журнал + письмо «смета готова» |
+| `IN_PROGRESS` | `QUOTE_READY` | Сметчик, админ | Разрешён только при наличии `quotes.is_current`; без сметы — `409 QUOTE_REQUIRED` (невыполненное условие, а не запрещённый переход). Журнал + письмо «смета готова» |
 | `NEEDS_INFO` | `QUOTE_READY` | Сметчик, админ | То же |
 | `QUOTE_READY` | `ACCEPTED` | **Клиент-владелец** | Создаётся `decisions`. Журнал + уведомление менеджеру (US-6: ≤1 мин) |
 | `QUOTE_READY` | `REJECTED` | **Клиент-владелец** | Создаётся `decisions` с обязательной причиной. Журнал + уведомление менеджеру |
@@ -1054,13 +1151,19 @@ interface ApiError {
 | 401 | `INVALID_CREDENTIALS`, `ACCESS_TOKEN_EXPIRED`, `REFRESH_INVALID` |
 | 403 | `FORBIDDEN`, `EMAIL_NOT_VERIFIED` |
 | 404 | `NOT_FOUND` |
-| 409 | `EMAIL_ALREADY_REGISTERED`, `DECISION_ALREADY_MADE`, `INVALID_STATUS_TRANSITION`, `TOKEN_ALREADY_USED`, `FILE_LIMIT_REACHED`, `UPLOAD_NOT_FOUND`, `DISCUSSION_CLOSED` |
+| 409 | `EMAIL_ALREADY_REGISTERED`, `DECISION_ALREADY_MADE`, `INVALID_STATUS_TRANSITION`, `QUOTE_REQUIRED`, `TOKEN_ALREADY_USED`, `FILE_LIMIT_REACHED`, `UPLOAD_NOT_FOUND`, `DISCUSSION_CLOSED` |
 | 410 | `TOKEN_EXPIRED`, `ESTIMATE_EXPIRED` |
 | 413 | `FILE_TOO_LARGE` |
 | 415 | `UNSUPPORTED_MEDIA_TYPE` |
 | 422 | `VALIDATION_FAILED`, `AREA_OUT_OF_RANGE`, `COMMENT_REQUIRED` |
 | 429 | `RATE_LIMITED`, `RESEND_TOO_SOON` (+ `Retry-After`), `REQUEST_LIMIT_REACHED` |
 | 500 | `INTERNAL_ERROR` — деталей наружу не отдаём, в лог пишем стек |
+
+`TOKEN_INVALID`, `TOKEN_ALREADY_USED` и `TOKEN_EXPIRED` общие для обоих потоков по
+ссылке из письма — верификации e-mail и восстановления пароля. Код отвечает на
+вопрос «что со ссылкой», а не «какая это была ссылка»: страница, пославшая запрос,
+и так знает, какую ссылку проверяла, и подбирает свой текст сама
+(`/verify` и `/reset` — разные экраны с разными формулировками).
 | 502 | `EMAIL_DELIVERY_FAILED` — письмо не принял ни один канал доставки |
 
 Что логируется: `requestId`, метод, путь, статус, длительность, `userId` (если есть), `code`. Что **не** логируется никогда: пароли, токены (access, refresh, верификационные), тела запросов `/auth/*`, подписанные URL целиком (только ключ объекта). Логгер — pino с явным списком редактируемых полей.

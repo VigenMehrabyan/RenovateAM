@@ -217,6 +217,17 @@ export function FileUploadSection({
         </Alert>
       ) : null}
 
+      {/*
+        Сорвавшаяся загрузка — не мелкая пометка в строке списка: файла
+        в хранилище нет, и заявка уйдёт без него. Говорим об этом прямо,
+        рядом с разделом, в котором файл выбирали.
+      */}
+      {items.some((item) => item.status === 'error') ? (
+        <Alert tone="danger" className="mt-3" title={t('request.files.failed')}>
+          {t('request.files.errors.network')}
+        </Alert>
+      ) : null}
+
       <ul className="mt-3 divide-y divide-ink-200 border-y border-ink-200">
         {items.length === 0 ? (
           <li className="py-2 text-sm text-ink-500">{t('request.files.empty')}</li>

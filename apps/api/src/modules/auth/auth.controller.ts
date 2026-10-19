@@ -8,8 +8,10 @@ import { ErrorCode } from '@common/errors/error-codes';
 import type { AuthUser } from '@common/types/auth-user';
 import { CONFIG, type AppConfig } from '@config';
 import { AuthService, type TokenPair } from './auth.service';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { VerifyDto } from './dto/verify.dto';
 
 /** Имя cookie с refresh-токеном. Access-токен в cookie не кладётся. */
@@ -42,6 +44,29 @@ export class AuthController {
   @HttpCode(202)
   async resend(@CurrentUser() user: AuthUser) {
     return this.auth.resendVerification(user.id);
+  }
+
+  /**
+   * Лимит строже, чем у входа: каждый запрос отправляет письмо, и эндпоинт
+   * публичный. Бизнес-троттлинга по пользователю, как у resend-verification,
+   * здесь нет намеренно — он требовал бы ветвления по существованию аккаунта.
+   */
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post('forgot-password')
+  @HttpCode(202)
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    await this.auth.forgotPassword(dto.email);
+    // Один и тот же ответ на любой адрес: эндпоинт не перечисляет аккаунты.
+    return { accepted: true as const };
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('reset-password')
+  @HttpCode(200)
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.auth.resetPassword(dto.token, dto.password);
   }
 
   @Public()

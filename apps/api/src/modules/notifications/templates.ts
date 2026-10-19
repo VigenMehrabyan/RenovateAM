@@ -87,6 +87,40 @@ function build(event: NotificationEvent): Dictionary {
         },
       };
 
+    case 'PASSWORD_RESET':
+      return {
+        RU: {
+          subject: 'RenovateAM — восстановление пароля',
+          heading: 'Новый пароль',
+          paragraphs: [
+            'Вы запросили смену пароля в RenovateAM. Откройте ссылку и задайте новый пароль.',
+            'Ссылка действует 60 минут и срабатывает один раз.',
+            'Пароль не менялся, пока вы не задали новый. После смены придётся войти заново на всех устройствах.',
+          ],
+          action: { label: 'Задать новый пароль', url: event.link },
+        },
+        HY: {
+          subject: 'RenovateAM — գաղտնաբառի վերականգնում',
+          heading: 'Նոր գաղտնաբառ',
+          paragraphs: [
+            'Դուք պահանջել եք փոխել RenovateAM-ի գաղտնաբառը: Բացեք հղումը և սահմանեք նոր գաղտնաբառ:',
+            'Հղումը գործում է 60 րոպե և աշխատում է միայն մեկ անգամ:',
+            'Գաղտնաբառը չի փոխվել, քանի դեռ նորը չեք սահմանել: Փոխելուց հետո պետք է նորից մուտք գործել բոլոր սարքերում:',
+          ],
+          action: { label: 'Սահմանել նոր գաղտնաբառ', url: event.link },
+        },
+        EN: {
+          subject: 'RenovateAM — password reset',
+          heading: 'New password',
+          paragraphs: [
+            'You asked to change your RenovateAM password. Open the link and set a new one.',
+            'The link is valid for 60 minutes and works once.',
+            'Your password has not changed until you set a new one. After the change you will need to sign in again on every device.',
+          ],
+          action: { label: 'Set a new password', url: event.link },
+        },
+      };
+
     case 'REQUEST_SUBMITTED':
       return {
         RU: {

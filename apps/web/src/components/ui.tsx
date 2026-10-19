@@ -169,6 +169,86 @@ export const TextInput = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLIn
   },
 );
 
+/**
+ * Глаз и перечёркнутый глаз для переключателя видимости пароля.
+ *
+ * Инлайновый SVG в том же наборе параметров, что и остальные знаки интерфейса
+ * (`Icon.tsx`): штрих `currentColor` толщиной 1.6, круглые концы. Иконочной
+ * библиотеки в проекте нет намеренно — один знак не стоит зависимости, а эмодзи
+ * в разных системах выглядит по-разному и читается программой чтения как текст.
+ * Знак декоративный (`aria-hidden`): состояние объявляет сама кнопка — именем
+ * и `aria-pressed`.
+ */
+function EyeGlyph({ crossed }: { crossed: boolean }): JSX.Element {
+  return (
+    <svg
+      className="h-5 w-5 shrink-0"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
+      <circle cx="12" cy="12" r="3.2" />
+      {crossed ? <path d="M4 20 20 4" /> : null}
+    </svg>
+  );
+}
+
+export interface PasswordInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> {
+  /** Доступное имя кнопки, пока пароль скрыт («Показать пароль»). */
+  showLabel: string;
+  /** Доступное имя кнопки, пока пароль виден («Скрыть пароль»). */
+  hideLabel: string;
+}
+
+/**
+ * Поле пароля с переключателем видимости внутри поля.
+ *
+ * Решения, от которых зависит работоспособность:
+ *  · переключатель — настоящий `<button type="button">`: внутри формы кнопка
+ *    по умолчанию отправляет её, и нажатие «посмотреть пароль» уходило бы
+ *    попыткой входа;
+ *  · меняется атрибут `type` у ТОГО ЖЕ элемента, поле не пересоздаётся и не
+ *    подменяется вторым: `autocomplete`, `name` и сам узел остаются на месте,
+ *    поэтому автозаполнение браузера и менеджеры паролей продолжают работать;
+ *  · состояние живёт в самом поле (`useState`), а не в сторе страницы: у двух
+ *    полей на одном экране оно своё, а переход на другую страницу размонтирует
+ *    компонент — показанный пароль не «утекает» на следующий экран;
+ *  · доступное имя меняется вместе с состоянием, а `aria-pressed` объявляет
+ *    само состояние: программе чтения не нужно догадываться по иконке.
+ */
+export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
+  function PasswordInput({ className = '', showLabel, hideLabel, ...rest }, ref) {
+    const [visible, setVisible] = useState(false);
+    const label = visible ? hideLabel : showLabel;
+
+    return (
+      <div className="relative">
+        <input
+          ref={ref}
+          type={visible ? 'text' : 'password'}
+          className={`field-control pr-14 ${className}`}
+          {...rest}
+        />
+        <button
+          type="button"
+          className="password-toggle"
+          onClick={() => setVisible((value) => !value)}
+          aria-pressed={visible}
+          aria-label={label}
+          title={label}
+        >
+          <EyeGlyph crossed={visible} />
+        </button>
+      </div>
+    );
+  },
+);
+
 /** Поддерживает ли браузер настраиваемый список (`appearance: base-select`). */
 function supportsCustomizableSelect(): boolean {
   // jsdom объявляет CSS без `supports` — проверяем сам метод, а не объект.

@@ -3,7 +3,16 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
-import { Alert, Button, Field, Page, PageTitle, TextInput, describedBy } from '@/components/ui';
+import {
+  Alert,
+  Button,
+  Field,
+  Page,
+  PageTitle,
+  PasswordInput,
+  TextInput,
+  describedBy,
+} from '@/components/ui';
 import { useAuth } from '@/features/auth/auth-context';
 import { isLocale, toApiLocale } from '@/i18n';
 import { authApi } from '@/lib/api';
@@ -162,10 +171,11 @@ export function RegisterPage(): JSX.Element {
           error={fieldError('password')}
           className="sm:col-span-2"
         >
-          <TextInput
+          <PasswordInput
             id="password"
-            type="password"
             autoComplete="new-password"
+            showLabel={t('auth.fields.passwordShow')}
+            hideLabel={t('auth.fields.passwordHide')}
             aria-invalid={Boolean(fieldError('password'))}
             aria-describedby={describedBy(
               'password',

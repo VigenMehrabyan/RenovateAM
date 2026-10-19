@@ -287,11 +287,17 @@ function Composer({
   }, []);
 
   const uploading = attachments.some((item) => item.status === 'uploading');
+  /**
+   * Вложение не доехало до хранилища. Отправлять сообщение в таком виде
+   * нельзя: «вот чертёж» без чертежа выглядит как успешно отправленное,
+   * а файла в заявке нет.
+   */
+  const uploadFailed = attachments.some((item) => item.status === 'error');
   const ready = attachments.filter((item) => item.status === 'done');
   const empty = text.trim().length === 0 && ready.length === 0;
 
   const submit = (): void => {
-    if (uploading || empty || mutation.isPending) return;
+    if (uploading || uploadFailed || empty || mutation.isPending) return;
     setError(null);
     mutation.mutate({
       text: text.trim(),
@@ -354,6 +360,11 @@ function Composer({
           {t(`request.files.errors.${rejection}`)}
         </Alert>
       ) : null}
+      {uploadFailed ? (
+        <Alert tone="danger" className="mt-3" title={t('discussion.uploadFailed')}>
+          {t('request.files.errors.network')}
+        </Alert>
+      ) : null}
       {error ? (
         <Alert tone="danger" className="mt-3" title={t('errors.title')}>
           {error}
@@ -377,7 +388,11 @@ function Composer({
         <Button type="button" variant="secondary" onClick={() => inputRef.current?.click()}>
           {t('discussion.attach')}
         </Button>
-        <Button type="button" disabled={empty || uploading || mutation.isPending} onClick={submit}>
+        <Button
+          type="button"
+          disabled={empty || uploading || uploadFailed || mutation.isPending}
+          onClick={submit}
+        >
           {mutation.isPending ? t('common.sending') : t('discussion.send')}
         </Button>
         {uploading ? (

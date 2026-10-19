@@ -209,6 +209,7 @@
     "login": {
       "title": "Sign in",
       "submit": "Sign in",
+      "forgotLink": "Forgot your password?",
       "noAccount": "No account yet?",
       "registerLink": "Create one"
     },
@@ -227,7 +228,10 @@
       "phoneHint": "Armenian format: +374XXXXXXXX",
       "address": "Property address",
       "password": "Password",
-      "passwordHint": "At least 8 characters, one letter and one digit"
+      "passwordHint": "At least 8 characters, one letter and one digit",
+      "passwordShow": "Show password",
+      "passwordHide": "Hide password",
+      "passwordConfirm": "Repeat password"
     },
     "validation": {
       "fullNameRequired": "Enter your full name",
@@ -240,7 +244,9 @@
       "addressShort": "At least 5 characters",
       "passwordRequired": "Choose a password",
       "passwordShort": "At least 8 characters",
-      "passwordWeak": "Needs at least one letter and one digit"
+      "passwordWeak": "Needs at least one letter and one digit",
+      "passwordConfirmRequired": "Repeat the password",
+      "passwordMismatch": "Passwords do not match"
     },
     "verify": {
       "title": "E-mail verification",
@@ -264,6 +270,33 @@
       "bannerTitle": "Verify your e-mail",
       "bannerText": "Until the address is verified you cannot send a request.",
       "bannerAction": "Open verification"
+    },
+    "forgot": {
+      "title": "Password recovery",
+      "lead": "Enter the e-mail your account is registered with. We will send a link to set a new password.",
+      "submit": "Send the link",
+      "sentTitle": "Email sent",
+      "sentText": "If an account for {{email}} exists, the link is already on its way. It is valid for 60 minutes.",
+      "sentHint": "No email? Check the spam folder and the address you entered.",
+      "again": "Use another address",
+      "backToLogin": "Back to sign in"
+    },
+    "reset": {
+      "title": "New password",
+      "lead": "Set a new password. After the change you will need to sign in again on every device.",
+      "submit": "Save the password",
+      "successTitle": "Password changed",
+      "successText": "Sign in with the new password. Previous sessions have ended.",
+      "toLogin": "Sign in",
+      "missingTitle": "Incomplete link",
+      "missingText": "The address has no token. Open the full link from the email or request a new one.",
+      "invalidTitle": "The link is not valid",
+      "invalidText": "Check that you copied the whole address, or request the email again.",
+      "expiredTitle": "The link has expired",
+      "expiredText": "The link is valid for 60 minutes. Request a new one — it goes to the same address.",
+      "usedTitle": "The link has already been used",
+      "usedText": "This link has already been used to change the password. If that was not you, request a new one.",
+      "requestNew": "Request a new link"
     }
   },
   "request": {
@@ -278,7 +311,8 @@
       "submit": "Send request",
       "submitted": "Request sent",
       "addressLabel": "Property address",
-      "addressHint": "Prefilled with the contact address from your profile — change it if the renovation is at another property"
+      "addressHint": "Prefilled with the contact address from your profile — change it if the renovation is at another property",
+      "filesFailed": "Some files did not upload. Remove them from the list and upload them again, otherwise the request will be submitted without attachments."
     },
     "files": {
       "btiTitle": "BTI floor plan",
@@ -297,7 +331,8 @@
         "unsupportedType": "Format not supported. Upload PDF, JPG, PNG or DWG",
         "tooLarge": "The file is over 25 MB. Compress it or split it into parts",
         "tooMany": "At most 10 files per request",
-        "empty": "The file is empty"
+        "empty": "The file is empty",
+        "network": "The file did not reach storage. Remove it and try again — a submitted request will not include it."
       }
     },
     "status": {
@@ -330,7 +365,7 @@
     "quoteTotal": "Total amount",
     "quoteDownload": "Download quote (PDF)",
     "noQuote": "The quote has not been uploaded yet.",
-    "commentTitle": "Estimator's comment",
+    "clientCommentTitle": "Client's comment on the request",
     "filesTitle": "Request files",
     "estimateTitle": "Instant estimate",
     "decision": {
@@ -414,7 +449,9 @@
       "quoteFileRequired": "Choose a PDF file",
       "decisionTitle": "Client decision",
       "back": "Back to queue",
-      "clientAddress": "Contact address"
+      "clientAddress": "Contact address",
+      "quoteRequiredHint": "The “Quote ready” status is unavailable: upload the quote PDF above first.",
+      "quoteMissing": "no quote yet"
     },
     "rates": {
       "title": "Rates and coefficients",
@@ -469,7 +506,8 @@
     "UNKNOWN": "Something went wrong. Try again.",
     "retry": "Try again",
     "REQUEST_LIMIT_REACHED": "Too many requests in a row: no more than three per hour. Check your cabinet — the request may already be submitted.",
-    "DISCUSSION_CLOSED": "The request is rejected — no new messages are accepted."
+    "DISCUSSION_CLOSED": "The request is rejected — no new messages are accepted.",
+    "QUOTE_REQUIRED": "A quote cannot be marked ready before it exists. Upload the quote PDF first, then change the status."
   },
   "notFound": {
     "title": "Page not found",

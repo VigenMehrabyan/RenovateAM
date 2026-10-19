@@ -55,6 +55,34 @@ function parseTtl(value: string): TokenTtl {
   return value as TokenTtl;
 }
 
+/**
+ * Заглушки в бою недопустимы.
+ *
+ * STORAGE_DRIVER=memory выдаёт браузеру ссылку `memory://…`, по которой PUT
+ * невозможен: файл не доезжает до хранилища, `confirm` не вызывается, и заявка
+ * уходит без вложений. Такая конфигурация должна ронять процесс на старте, а не
+ * тихо терять файлы клиентов. То же и с MAIL_DRIVER=memory: письма остаются
+ * в оперативной памяти и до адресата не доходят.
+ */
+function assertProductionDrivers(config: AppConfig): void {
+  if (config.nodeEnv !== 'production') return;
+
+  if (config.storage.driver === 'memory') {
+    throw new Error(
+      'STORAGE_DRIVER=memory недопустим при NODE_ENV=production: хранилище в памяти ' +
+        'выдаёт браузеру ссылку memory://, загрузить по ней файл нельзя, и вложения ' +
+        'заявок молча теряются. Задайте STORAGE_DRIVER=s3 и параметры S3_*',
+    );
+  }
+  if (config.mail.driver === 'memory') {
+    throw new Error(
+      'MAIL_DRIVER=memory недопустим при NODE_ENV=production: письма остаются ' +
+        'в памяти процесса и до адресата не доходят. Задайте MAIL_DRIVER=resend ' +
+        'и RESEND_API_KEY',
+    );
+  }
+}
+
 export function loadConfiguration(): AppConfig {
   const storageDriver = optional('STORAGE_DRIVER', 's3');
   const mailDriver = optional('MAIL_DRIVER', 'resend');
@@ -97,6 +125,8 @@ export function loadConfiguration(): AppConfig {
     for (const key of ['S3_ENDPOINT', 'S3_BUCKET', 'S3_ACCESS_KEY', 'S3_SECRET_KEY']) required(key);
   }
   if (config.mail.driver === 'resend') required('RESEND_API_KEY');
+
+  assertProductionDrivers(config);
 
   return config;
 }

@@ -68,6 +68,25 @@ export const authApi = {
       skipRefresh: true,
     }),
 
+  /**
+   * Запрос письма со ссылкой восстановления. Ответ сервера одинаков для
+   * существующего и несуществующего адреса (ARCHITECTURE §6.5) — интерфейс
+   * обязан показывать один и тот же экран, а не «такого адреса нет».
+   */
+  forgotPassword: (email: string) =>
+    apiRequest<{ accepted: true }>('/auth/forgot-password', {
+      method: 'POST',
+      body: { email },
+      skipRefresh: true,
+    }),
+
+  resetPassword: (token: string, password: string) =>
+    apiRequest<{ reset: true }>('/auth/reset-password', {
+      method: 'POST',
+      body: { token, password },
+      skipRefresh: true,
+    }),
+
   resendVerification: () =>
     apiRequest<{ sent: true; nextAllowedAt: string }>('/auth/resend-verification', {
       method: 'POST',
