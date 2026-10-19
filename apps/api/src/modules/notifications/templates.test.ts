@@ -5,11 +5,13 @@ import type { NotificationEvent } from './public';
 
 const LOCALES: Locale[] = ['RU', 'HY', 'EN'];
 const LINK = 'https://renovateam.am/verify?token=abc123';
+const RESET_LINK = 'https://renovateam.am/reset?token=abc123';
 
 /** По одному событию каждого типа — на одной локали. */
 function events(locale: Locale): NotificationEvent[] {
   return [
     { type: 'EMAIL_VERIFICATION', to: 'client@example.com', locale, link: LINK },
+    { type: 'PASSWORD_RESET', to: 'client@example.com', locale, link: RESET_LINK },
     { type: 'REQUEST_SUBMITTED', to: 'client@example.com', locale, requestNumber: 12 },
     {
       type: 'REQUEST_NEEDS_INFO',
@@ -60,6 +62,25 @@ describe('шаблоны писем', () => {
       expect(message.html).toContain(`href="${LINK}"`);
       expect(message.html.split(LINK).length - 1).toBeGreaterThanOrEqual(3);
       expect(message.text).toContain(LINK);
+    }
+  });
+
+  it('письмо восстановления ведёт на /reset и называет срок жизни ссылки', () => {
+    for (const [locale, ttl] of [
+      ['RU', '60 минут'],
+      ['HY', '60 րոպե'],
+      ['EN', '60 minutes'],
+    ] as const) {
+      const message = renderTemplate({
+        type: 'PASSWORD_RESET',
+        to: 'client@example.com',
+        locale,
+        link: RESET_LINK,
+      });
+
+      expect(message.html).toContain(`href="${RESET_LINK}"`);
+      expect(message.text).toContain(RESET_LINK);
+      expect(message.text, `${locale} ttl`).toContain(ttl);
     }
   });
 

@@ -97,6 +97,41 @@ export const loginSchema = z.object({
 
 export type LoginValues = z.infer<typeof loginSchema>;
 
+/** Запрос письма со ссылкой восстановления: один адрес, те же правила. */
+export const forgotPasswordSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .min(1, 'auth.validation.emailRequired')
+    .email('auth.validation.emailInvalid'),
+});
+
+export type ForgotPasswordValues = z.infer<typeof forgotPasswordSchema>;
+
+/**
+ * Новый пароль по ссылке из письма. Правила — те же, что при регистрации
+ * (то же выражение, та же пара ключей ошибок): восстановление не должно
+ * становиться способом завести пароль слабее разрешённого. Повтор проверяется
+ * здесь, а не на сервере: опечатку видно сразу, без запроса и без расхода
+ * одноразовой ссылки.
+ */
+export const resetPasswordSchema = z
+  .object({
+    password: z
+      .string()
+      .min(1, 'auth.validation.passwordRequired')
+      .min(8, 'auth.validation.passwordShort')
+      .regex(PASSWORD_LETTER, 'auth.validation.passwordWeak')
+      .regex(PASSWORD_DIGIT, 'auth.validation.passwordWeak'),
+    passwordConfirm: z.string().min(1, 'auth.validation.passwordConfirmRequired'),
+  })
+  .refine((values) => values.password === values.passwordConfirm, {
+    message: 'auth.validation.passwordMismatch',
+    path: ['passwordConfirm'],
+  });
+
+export type ResetPasswordValues = z.infer<typeof resetPasswordSchema>;
+
 export const decisionSchema = z
   .object({
     reason: z

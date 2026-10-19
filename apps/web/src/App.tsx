@@ -6,10 +6,12 @@ import { RequireAuth, RequireStaff } from '@/components/guards';
 import { CabinetPage } from '@/pages/CabinetPage';
 import { CabinetRequestPage } from '@/pages/CabinetRequestPage';
 import { EstimatePage } from '@/pages/EstimatePage';
+import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage';
 import { LandingPage } from '@/pages/LandingPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { NewRequestPage } from '@/pages/NewRequestPage';
 import { RegisterPage } from '@/pages/RegisterPage';
+import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
 import { VerifyEmailPage } from '@/pages/VerifyEmailPage';
 import { AdminQueuePage } from '@/pages/admin/AdminQueuePage';
 import { AdminRatesPage } from '@/pages/admin/AdminRatesPage';
@@ -37,6 +39,8 @@ export function App(): JSX.Element {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/verify" element={<VerifyEmailPage />} />
+        <Route path="/forgot" element={<ForgotPasswordPage />} />
+        <Route path="/reset" element={<ResetPasswordPage />} />
 
         <Route element={<RequireAuth />}>
           <Route path="/cabinet" element={<CabinetPage />} />

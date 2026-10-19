@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@common/prisma/prisma.service';
-import type { Prisma, RefreshToken, User, VerificationToken } from '@db';
+import type { PasswordResetToken, Prisma, RefreshToken, User, VerificationToken } from '@db';
 
 /**
  * Приватный репозиторий модуля auth. Владеет таблицами
- * users, verification_tokens, refresh_tokens.
+ * users, verification_tokens, password_reset_tokens, refresh_tokens.
  */
 @Injectable()
 export class AuthRepository {
@@ -80,6 +80,52 @@ export class AuthRepository {
         data: { usedAt: now },
       });
       await tx.user.update({ where: { id: userId }, data: { emailVerifiedAt: now } });
+    });
+  }
+
+  // --- восстановление пароля ----------------------------------------------
+
+  async createPasswordResetToken(
+    userId: string,
+    tokenHash: string,
+    expiresAt: Date,
+  ): Promise<PasswordResetToken> {
+    return this.prisma.passwordResetToken.create({ data: { userId, tokenHash, expiresAt } });
+  }
+
+  async findPasswordResetToken(tokenHash: string): Promise<PasswordResetToken | null> {
+    return this.prisma.passwordResetToken.findUnique({ where: { tokenHash } });
+  }
+
+  /**
+   * Смена пароля по ссылке восстановления. Одной транзакцией:
+   *  · новый хеш пароля;
+   *  · использованная ссылка гасится;
+   *  · прочие неиспользованные ссылки этого человека гасятся — письмо могло
+   *    быть запрошено несколько раз, и живой должна остаться ни одна;
+   *  · отзываются все активные refresh-токены: сессии, открытые старым
+   *    паролем, умирают вместе с ним.
+   *
+   * Всё вместе, а не по шагам: пароль не может оказаться новым при живых
+   * старых сессиях даже при падении процесса посередине.
+   */
+  async consumePasswordResetToken(
+    tokenId: string,
+    userId: string,
+    passwordHash: string,
+    now: Date,
+  ): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.passwordResetToken.update({ where: { id: tokenId }, data: { usedAt: now } });
+      await tx.passwordResetToken.updateMany({
+        where: { userId, usedAt: null },
+        data: { usedAt: now },
+      });
+      await tx.user.update({ where: { id: userId }, data: { passwordHash } });
+      await tx.refreshToken.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: now },
+      });
     });
   }
 

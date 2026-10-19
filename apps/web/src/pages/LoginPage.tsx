@@ -85,6 +85,15 @@ export function LoginPage(): JSX.Element {
           />
         </Field>
 
+        {/* Ссылка внутри формы, рядом с полем пароля: человек вспоминает о ней
+            именно здесь, а не прочитав всю страницу до конца. */}
+        <Link
+          to="/forgot"
+          className="touch-target -mt-1 inline-flex items-center self-start text-sm text-accent-500 underline underline-offset-4"
+        >
+          {t('auth.login.forgotLink')}
+        </Link>
+
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting ? t('common.sending') : t('auth.login.submit')}
         </Button>

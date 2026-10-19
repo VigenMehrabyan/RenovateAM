@@ -109,6 +109,23 @@ describe('показать / скрыть пароль', () => {
     expect(screen.getByLabelText('Пароль')).toHaveAttribute('type', 'text');
   });
 
+  it('состояние у каждого поля своё: на /reset два поля переключаются независимо', async () => {
+    mockFetch();
+    renderWithProviders(<App />, { route: '/reset?token=some-long-token', user: null });
+
+    const password = await screen.findByLabelText('Пароль');
+    const confirm = screen.getByLabelText('Повторите пароль');
+    const [first, second] = screen.getAllByRole('button', { name: 'Показать пароль' });
+
+    await userEvent.click(first!);
+
+    expect(screen.getByLabelText('Пароль')).toHaveAttribute('type', 'text');
+    expect(screen.getByLabelText('Повторите пароль')).toHaveAttribute('type', 'password');
+    expect(second).toHaveAttribute('aria-pressed', 'false');
+    expect(password).toBeInTheDocument();
+    expect(confirm).toBeInTheDocument();
+  });
+
   it('состояние сбрасывается при переходе на другую страницу', async () => {
     mockFetch();
     renderWithProviders(<App />, { route: '/login', user: null });

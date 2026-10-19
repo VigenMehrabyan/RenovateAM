@@ -22,6 +22,17 @@ import type { AuthPublicService, PublicUser } from './public';
 const BCRYPT_COST = 12;
 /** Срок жизни ссылки верификации — 24 часа (US-2). */
 const VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000;
+/**
+ * Срок жизни ссылки восстановления пароля — 60 минут (US-10).
+ *
+ * Ссылка сильнее ссылки верификации: кто её открыл, тот владеет аккаунтом,
+ * поэтому 24 часа верификации здесь были бы слишком широким окном — письмо
+ * живёт в ящике, пересылается, попадает в общие ящики. 15 минут, наоборот,
+ * не хватает живому человеку: письмо читают на другом устройстве, провайдер
+ * задерживает доставку. 60 минут закрывают обычную задержку и оставляют окно
+ * в пределах одного сеанса работы с почтой.
+ */
+const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;
 /** Повторная отправка письма — не чаще раза в 60 секунд (US-2). */
 export const RESEND_COOLDOWN_MS = 60 * 1000;
 /** Суточный потолок писем на пользователя: защита от использования как ретранслятора. */
@@ -169,6 +180,90 @@ export class AuthService implements AuthPublicService {
       sent: true,
       nextAllowedAt: new Date(Date.now() + RESEND_COOLDOWN_MS).toISOString(),
     };
+  }
+
+  // --- восстановление пароля ----------------------------------------------
+
+  /**
+   * Запрос письма со ссылкой восстановления.
+   *
+   * Ответ ОДИНАКОВ для существующего и несуществующего адреса — и по статусу,
+   * и по телу, и по времени. Статус с телом задаёт контроллер (202
+   * `{ accepted: true }`), а время закрыто здесь: дорогая асимметричная часть,
+   * обращение к почтовому провайдеру, вынесена за пределы ответа. Токен
+   * выпускается, отправка запускается без `await`, метод возвращается сразу.
+   * Поэтому ветки отличаются одной вставкой в БД (единицы миллисекунд, ниже
+   * сетевого шума), а не секундами ожидания SMTP.
+   *
+   * Сказать «письмо не ушло», как это делает resendVerification, здесь нельзя:
+   * такой ответ сам был бы признаком существования аккаунта.
+   */
+  async forgotPassword(email: string): Promise<void> {
+    const user = await this.repository.findUserByEmail(email.toLowerCase());
+    if (!user) {
+      // В лог — да, в ответ — нет: логи внутренние, ответ виден снаружи.
+      this.logger.log('event=password_reset_requested user=unknown');
+      return;
+    }
+
+    const token = generateToken();
+    await this.repository.createPasswordResetToken(
+      user.id,
+      sha256(token),
+      new Date(Date.now() + PASSWORD_RESET_TTL_MS),
+    );
+    this.logger.log(`event=password_reset_requested user=${user.id}`);
+
+    // Намеренно без await: см. комментарий выше. Исключение внутрь
+    // notifications не выходит, но страховка от «unhandled rejection» нужна.
+    void this.deliverPasswordResetEmail(user, token);
+  }
+
+  /** Отправка письма со ссылкой. Сам токен в лог не попадает — только исход. */
+  private async deliverPasswordResetEmail(user: User, token: string): Promise<void> {
+    try {
+      const { accepted } = await this.notifications.send({
+        type: 'PASSWORD_RESET',
+        to: user.email,
+        locale: user.locale,
+        link: `${this.config.appUrl}/reset?token=${token}`,
+      });
+      this.logger[accepted ? 'log' : 'error'](
+        `event=password_reset_email_${accepted ? 'sent' : 'failed'} user=${user.id}`,
+      );
+    } catch {
+      this.logger.error(`event=password_reset_email_failed user=${user.id}`);
+    }
+  }
+
+  /**
+   * Установка нового пароля по ссылке из письма.
+   *
+   * Порядок проверок и коды — те же, что у верификации e-mail: страница знает,
+   * какую ссылку она проверяла, и подбирает текст сама. Сам токен ни в одно
+   * сообщение об ошибке не попадает.
+   */
+  async resetPassword(rawToken: string, newPassword: string): Promise<{ reset: true }> {
+    const record = await this.repository.findPasswordResetToken(sha256(rawToken));
+    if (!record) {
+      throw new AppException(400, ErrorCode.TOKEN_INVALID, 'Password reset token is invalid');
+    }
+    if (record.usedAt) {
+      throw new AppException(409, ErrorCode.TOKEN_ALREADY_USED, 'Password reset link already used');
+    }
+    if (record.expiresAt.getTime() < Date.now()) {
+      throw new AppException(410, ErrorCode.TOKEN_EXPIRED, 'Password reset link expired');
+    }
+
+    await this.repository.consumePasswordResetToken(
+      record.id,
+      record.userId,
+      await bcrypt.hash(newPassword, BCRYPT_COST),
+      new Date(),
+    );
+    // Сессии, открытые старым паролем, погашены вместе со сменой хеша.
+    this.logger.log(`event=password_reset_completed user=${record.userId}`);
+    return { reset: true };
   }
 
   // --- вход и токены -------------------------------------------------------
