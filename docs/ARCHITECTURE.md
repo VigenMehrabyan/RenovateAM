@@ -781,7 +781,7 @@ interface AdminRequestsResponse {
 // PATCH /admin/requests/:id/status — staff
 interface ChangeStatusDto { to: RequestStatus; comment?: string } // обязателен при NEEDS_INFO
 // 200 → RequestResponse
-// 409 INVALID_STATUS_TRANSITION · 422 COMMENT_REQUIRED
+// 409 INVALID_STATUS_TRANSITION · 409 QUOTE_REQUIRED (QUOTE_READY без сметы) · 422 COMMENT_REQUIRED
 
 // POST /admin/requests/:id/quote — staff, multipart/form-data
 // поля: file (PDF, ≤25 МБ), totalAmount (int, драмы)
@@ -960,7 +960,7 @@ Bucket приватный: публичного URL у объекта нет в�
 | `NEW` | `NEEDS_INFO` | Сметчик, админ | Журнал + письмо клиенту с комментарием (комментарий обязателен) |
 | `IN_PROGRESS` | `NEEDS_INFO` | Сметчик, админ | То же |
 | `NEEDS_INFO` | `IN_PROGRESS` | Сметчик, админ | Клиент дослал данные. Журнал |
-| `IN_PROGRESS` | `QUOTE_READY` | Сметчик, админ | Разрешён только при наличии `quotes.is_current`. Журнал + письмо «смета готова» |
+| `IN_PROGRESS` | `QUOTE_READY` | Сметчик, админ | Разрешён только при наличии `quotes.is_current`; без сметы — `409 QUOTE_REQUIRED` (невыполненное условие, а не запрещённый переход). Журнал + письмо «смета готова» |
 | `NEEDS_INFO` | `QUOTE_READY` | Сметчик, админ | То же |
 | `QUOTE_READY` | `ACCEPTED` | **Клиент-владелец** | Создаётся `decisions`. Журнал + уведомление менеджеру (US-6: ≤1 мин) |
 | `QUOTE_READY` | `REJECTED` | **Клиент-владелец** | Создаётся `decisions` с обязательной причиной. Журнал + уведомление менеджеру |
@@ -1054,7 +1054,7 @@ interface ApiError {
 | 401 | `INVALID_CREDENTIALS`, `ACCESS_TOKEN_EXPIRED`, `REFRESH_INVALID` |
 | 403 | `FORBIDDEN`, `EMAIL_NOT_VERIFIED` |
 | 404 | `NOT_FOUND` |
-| 409 | `EMAIL_ALREADY_REGISTERED`, `DECISION_ALREADY_MADE`, `INVALID_STATUS_TRANSITION`, `TOKEN_ALREADY_USED`, `FILE_LIMIT_REACHED`, `UPLOAD_NOT_FOUND`, `DISCUSSION_CLOSED` |
+| 409 | `EMAIL_ALREADY_REGISTERED`, `DECISION_ALREADY_MADE`, `INVALID_STATUS_TRANSITION`, `QUOTE_REQUIRED`, `TOKEN_ALREADY_USED`, `FILE_LIMIT_REACHED`, `UPLOAD_NOT_FOUND`, `DISCUSSION_CLOSED` |
 | 410 | `TOKEN_EXPIRED`, `ESTIMATE_EXPIRED` |
 | 413 | `FILE_TOO_LARGE` |
 | 415 | `UNSUPPORTED_MEDIA_TYPE` |

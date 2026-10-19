@@ -344,12 +344,25 @@ function QuoteUpload({ request }: { request: RequestResponse }): JSX.Element {
   );
 }
 
+/**
+ * Смена статуса.
+ *
+ * «Смета готова» требует загруженной сметы — условие проверяет сервер
+ * (`409 QUOTE_REQUIRED`). Но узнавать об этом после нажатия незачем: пока
+ * сметы нет, вариант выключен и подписан причиной, а по умолчанию выбран
+ * тот статус, который действительно доступен.
+ */
 function StatusChange({ request }: { request: RequestResponse }): JSX.Element {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const toMessage = useErrorMessage();
   const available = STAFF_TRANSITIONS[request.status];
-  const [target, setTarget] = useState<RequestStatus | ''>(available[0] ?? '');
+  const needsQuote = (status: RequestStatus): boolean =>
+    status === 'QUOTE_READY' && request.quote === null;
+  const blocked = available.filter(needsQuote);
+  const [target, setTarget] = useState<RequestStatus | ''>(
+    available.find((status) => !needsQuote(status)) ?? '',
+  );
   const [comment, setComment] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -374,6 +387,10 @@ function StatusChange({ request }: { request: RequestResponse }): JSX.Element {
   const submit = (): void => {
     setError(null);
     if (!target) return;
+    if (needsQuote(target)) {
+      setError(t('admin.request.quoteRequiredHint'));
+      return;
+    }
     if (target === 'NEEDS_INFO' && !comment.trim()) {
       setError(t('admin.request.statusCommentRequired'));
       return;
@@ -384,15 +401,22 @@ function StatusChange({ request }: { request: RequestResponse }): JSX.Element {
   return (
     <Section title={t('admin.request.statusTitle')}>
       <div className="grid max-w-md gap-4">
-        <Field id="status-target" label={t('admin.request.statusTarget')}>
+        <Field
+          id="status-target"
+          label={t('admin.request.statusTarget')}
+          hint={blocked.length > 0 ? t('admin.request.quoteRequiredHint') : undefined}
+        >
           <Select
             id="status-target"
             value={target}
+            aria-describedby={blocked.length > 0 ? 'status-target-hint' : undefined}
             onChange={(event) => setTarget(event.target.value as RequestStatus)}
           >
             {available.map((status) => (
-              <option key={status} value={status}>
-                {t(`request.status.${status}`)}
+              <option key={status} value={status} disabled={needsQuote(status)}>
+                {needsQuote(status)
+                  ? `${t(`request.status.${status}`)} — ${t('admin.request.quoteMissing')}`
+                  : t(`request.status.${status}`)}
               </option>
             ))}
           </Select>

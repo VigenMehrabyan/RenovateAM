@@ -506,6 +506,52 @@ describe.skipIf(!DATABASE_AVAILABLE)('admin, pricing и files (интеграц�
         .expect(409);
     });
 
+    /**
+     * Регрессия: «Смета готова» без загруженной сметы отвечала кодом
+     * INVALID_STATUS_TRANSITION, и сметчик читал «такой переход статуса
+     * запрещён» — ни слова о том, что надо просто загрузить смету.
+     * Переход матрицей разрешён, не выполнено условие: код отдельный.
+     */
+    it('«смета готова» без сметы — QUOTE_REQUIRED, а не запрещённый переход', async () => {
+      const user = await createClient(context);
+      const staff = await createStaff(context);
+      const requestId = await newRequest(user);
+
+      await context
+        .http()
+        .patch(url(`/admin/requests/${requestId}/status`))
+        .set(auth(staff))
+        .send({ to: 'IN_PROGRESS' })
+        .expect(200);
+
+      const response = await context
+        .http()
+        .patch(url(`/admin/requests/${requestId}/status`))
+        .set(auth(staff))
+        .send({ to: 'QUOTE_READY' })
+        .expect(409);
+      expect(response.body.error.code).toBe('QUOTE_REQUIRED');
+
+      // Со сметой тот же переход проходит: дело было именно в условии.
+      await context
+        .http()
+        .post(url(`/admin/requests/${requestId}/quote`))
+        .set(auth(staff))
+        .field('totalAmount', '5000000')
+        .attach('file', Buffer.from('%PDF-1.4 smeta'), {
+          filename: 'quote.pdf',
+          contentType: 'application/pdf',
+        })
+        .expect(201);
+
+      const card = await context
+        .http()
+        .get(url(`/admin/requests/${requestId}`))
+        .set(auth(staff))
+        .expect(200);
+      expect(card.body.status).toBe('QUOTE_READY');
+    });
+
     it('сметчик не может принять смету за клиента', async () => {
       const user = await createClient(context);
       const staff = await createStaff(context);

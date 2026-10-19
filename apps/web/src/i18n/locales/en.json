@@ -416,7 +416,9 @@
       "quoteFileRequired": "Choose a PDF file",
       "decisionTitle": "Client decision",
       "back": "Back to queue",
-      "clientAddress": "Contact address"
+      "clientAddress": "Contact address",
+      "quoteRequiredHint": "The “Quote ready” status is unavailable: upload the quote PDF above first.",
+      "quoteMissing": "no quote yet"
     },
     "rates": {
       "title": "Rates and coefficients",
@@ -471,7 +473,8 @@
     "UNKNOWN": "Something went wrong. Try again.",
     "retry": "Try again",
     "REQUEST_LIMIT_REACHED": "Too many requests in a row: no more than three per hour. Check your cabinet — the request may already be submitted.",
-    "DISCUSSION_CLOSED": "The request is rejected — no new messages are accepted."
+    "DISCUSSION_CLOSED": "The request is rejected — no new messages are accepted.",
+    "QUOTE_REQUIRED": "A quote cannot be marked ready before it exists. Upload the quote PDF first, then change the status."
   },
   "notFound": {
     "title": "Page not found",

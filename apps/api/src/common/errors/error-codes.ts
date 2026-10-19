@@ -19,6 +19,12 @@ export const ErrorCode = {
   EMAIL_ALREADY_REGISTERED: 'EMAIL_ALREADY_REGISTERED',
   DECISION_ALREADY_MADE: 'DECISION_ALREADY_MADE',
   INVALID_STATUS_TRANSITION: 'INVALID_STATUS_TRANSITION',
+  /**
+   * Переход в QUOTE_READY сам по себе разрешён, но смета ещё не загружена.
+   * Отдельный код от INVALID_STATUS_TRANSITION: это не запрет, а невыполненное
+   * условие — сметчику надо сказать, что сделать, а не что нельзя.
+   */
+  QUOTE_REQUIRED: 'QUOTE_REQUIRED',
   TOKEN_ALREADY_USED: 'TOKEN_ALREADY_USED',
   FILE_LIMIT_REACHED: 'FILE_LIMIT_REACHED',
   UPLOAD_NOT_FOUND: 'UPLOAD_NOT_FOUND',

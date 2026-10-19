@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { App } from '@/App';
 import type { RequestResponse } from '@/lib/api-types';
 import { makeUser, renderWithProviders } from './render';
@@ -42,16 +43,22 @@ const card: RequestResponse = {
   },
 };
 
-beforeEach(() => {
+/** Отдаёт карточку заявки на любой запрос. */
+function mockCard(overrides: Partial<RequestResponse> = {}): void {
+  const body = { ...card, ...overrides };
   globalThis.fetch = vi.fn().mockImplementation(() =>
     Promise.resolve({
       ok: true,
       status: 200,
       headers: new Headers(),
-      text: async () => JSON.stringify(card),
-      json: async () => card,
+      text: async () => JSON.stringify(body),
+      json: async () => body,
     }),
   ) as unknown as typeof fetch;
+}
+
+beforeEach(() => {
+  mockCard();
   window.sessionStorage.clear();
 });
 
@@ -86,5 +93,48 @@ describe('карточка заявки в админке', () => {
     expect(await screen.findByText('Ереван, Маштоца 10')).toBeInTheDocument();
     expect(screen.getByText('Ереван, Абовяна 5')).toBeInTheDocument();
     expect(screen.getByText('Контактный адрес')).toBeInTheDocument();
+  });
+
+  /**
+   * Регрессия: сметчик выбирал «Смета готова» без загруженной сметы, получал
+   * 409 и общий текст «Такой переход статуса запрещён». Теперь вариант
+   * выключен заранее и подписан причиной.
+   */
+  it('без сметы статус «Смета готова» недоступен и объяснён', async () => {
+    mockCard({ status: 'IN_PROGRESS', quote: null });
+    renderWithProviders(<App />, {
+      route: '/admin/requests/r1',
+      user: makeUser({ role: 'ESTIMATOR' }),
+    });
+
+    const select = await screen.findByLabelText('Новый статус');
+    const quoteReady = within(select).getByRole('option', { name: /Смета готова/ });
+    expect(quoteReady).toBeDisabled();
+    expect(quoteReady).toHaveTextContent('сметы ещё нет');
+    expect(
+      screen.getByText('Статус «Смета готова» недоступен: сначала загрузите PDF-смету выше.'),
+    ).toBeInTheDocument();
+    // По умолчанию выбран статус, который действительно доступен.
+    expect((select as HTMLSelectElement).value).toBe('NEEDS_INFO');
+
+    // Отправка невозможна: запроса на смену статуса не происходит.
+    await userEvent.click(screen.getByRole('button', { name: 'Сменить статус' }));
+    const calls = (globalThis.fetch as unknown as { mock: { calls: unknown[][] } }).mock.calls;
+    expect(calls.some((call) => String(call[0]).includes('/status'))).toBe(false);
+  });
+
+  it('со сметой статус «Смета готова» доступен', async () => {
+    mockCard({
+      status: 'IN_PROGRESS',
+      quote: { id: 'q1', totalAmount: 5_100_000, createdAt: '2026-09-03T10:00:00Z' },
+    });
+    renderWithProviders(<App />, {
+      route: '/admin/requests/r1',
+      user: makeUser({ role: 'ESTIMATOR' }),
+    });
+
+    const select = await screen.findByLabelText('Новый статус');
+    expect(within(select).getByRole('option', { name: 'Смета готова' })).not.toBeDisabled();
+    expect(screen.queryByText(/сначала загрузите PDF-смету/)).not.toBeInTheDocument();
   });
 });
