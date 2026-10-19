@@ -559,7 +559,9 @@ interface RegisterDto {
   locale: 'RU' | 'HY' | 'EN';
   quickEstimateIds?: string[]; // анонимные расчёты, привязываются к аккаунту
 }
-interface RegisterResponse { userId: string; emailVerificationSent: true }
+// emailVerificationSent=false — аккаунт создан, но почтовый канал письмо не принял:
+// регистрация успешна, ответ об этом не врёт, фронт показывает честный текст.
+interface RegisterResponse { userId: string; emailVerificationSent: boolean }
 // 201 · 409 EMAIL_ALREADY_REGISTERED · 422 VALIDATION_FAILED · 429 RATE_LIMITED
 ```
 
@@ -574,6 +576,7 @@ interface VerifyResponse { verified: true }
 // POST /auth/resend-verification — client
 interface ResendResponse { sent: true; nextAllowedAt: string }
 // 202 · 409 ALREADY_VERIFIED · 429 RESEND_TOO_SOON (Retry-After в секундах)
+// · 502 EMAIL_DELIVERY_FAILED — канал отказался принять письмо (успехом не прикрываемся)
 ```
 
 ```ts
@@ -1058,6 +1061,7 @@ interface ApiError {
 | 422 | `VALIDATION_FAILED`, `AREA_OUT_OF_RANGE`, `COMMENT_REQUIRED` |
 | 429 | `RATE_LIMITED`, `RESEND_TOO_SOON` (+ `Retry-After`), `REQUEST_LIMIT_REACHED` |
 | 500 | `INTERNAL_ERROR` — деталей наружу не отдаём, в лог пишем стек |
+| 502 | `EMAIL_DELIVERY_FAILED` — письмо не принял ни один канал доставки |
 
 Что логируется: `requestId`, метод, путь, статус, длительность, `userId` (если есть), `code`. Что **не** логируется никогда: пароли, токены (access, refresh, верификационные), тела запросов `/auth/*`, подписанные URL целиком (только ключ объекта). Логгер — pino с явным списком редактируемых полей.
 
@@ -1081,6 +1085,7 @@ interface ApiError {
 | `estimate_calculated` | `finishPackage`, `needsManual`, `areaSqm`, `amountBase`, `rateVersionId` | лендинг → расчёт; доля дизайнерских пакетов |
 | `user_registered` | `hasLinkedEstimate`, `locale` | расчёт → регистрация |
 | `email_verification_sent` / `email_verified` | `attempt` | регистрация → верификация |
+| `email_verification_failed` | `userId` | письма не было: воронка верификации не должна считать такую регистрацию успешной |
 | `request_submitted` | `filesCount`, `needsManual`, `hasEstimate` | доля заявок с файлами |
 | `request_status_changed` | `from`, `to`, `actorRole` | время от заявки до сметы |
 | `quote_uploaded` | `totalAmount`, `estimateAmountBase`, `deviationPct` | **отклонение автооценки от финальной сметы** |

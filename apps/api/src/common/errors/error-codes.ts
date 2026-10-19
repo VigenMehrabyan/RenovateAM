@@ -42,6 +42,9 @@ export const ErrorCode = {
   REQUEST_LIMIT_REACHED: 'REQUEST_LIMIT_REACHED',
   // 500
   INTERNAL_ERROR: 'INTERNAL_ERROR',
+  // 502
+  /** Почтовый канал отказался принять письмо: отправка не удалась. */
+  EMAIL_DELIVERY_FAILED: 'EMAIL_DELIVERY_FAILED',
 } as const;
 
 export type ErrorCodeValue = (typeof ErrorCode)[keyof typeof ErrorCode];

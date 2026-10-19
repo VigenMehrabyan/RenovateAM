@@ -5,7 +5,7 @@ import { Alert, Button, ButtonLink, Page, PageTitle, Spinner } from '@/component
 import { useAuth } from '@/features/auth/auth-context';
 import { authApi } from '@/lib/api';
 import { ApiError } from '@/lib/http';
-import { useErrorMessage } from '@/lib/use-error-message';
+import { useCodeMessage, useErrorMessage } from '@/lib/use-error-message';
 
 /** Состояние проверки ссылки. */
 type VerifyState = 'idle' | 'checking' | 'success' | 'expired' | 'used' | 'invalid';
@@ -14,7 +14,8 @@ const RESEND_COOLDOWN_SECONDS = 60;
 
 /**
  * Одна страница на весь поток подтверждения (ARCHITECTURE §6.4):
- *  · без токена — «письмо отправлено» с повторной отправкой раз в 60 секунд;
+ *  · без токена — «письмо отправлено» с повторной отправкой раз в 60 секунд
+ *    (а если канал письмо не принял — честное «отправить не удалось»);
  *  · с токеном — проверка и три отдельных исхода: истекла, уже использована,
  *    недействительна.
  */
@@ -23,6 +24,7 @@ export function VerifyEmailPage(): JSX.Element {
   const [params] = useSearchParams();
   const { user, reload } = useAuth();
   const toMessage = useErrorMessage();
+  const codeMessage = useCodeMessage();
 
   const token = params.get('token');
   const emailFromQuery = params.get('email');
@@ -34,6 +36,8 @@ export function VerifyEmailPage(): JSX.Element {
   // «Подтвердите e-mail», письма только что не получал — ему кнопка нужна
   // сразу, а не через минуту ожидания непонятно чего.
   const justSent = params.get('sent') === '1';
+  // Регистрация прошла, но почтовый канал письмо не принял (?delivery=failed).
+  const deliveryFailed = params.get('delivery') === 'failed';
   const [cooldown, setCooldown] = useState(!token && justSent ? RESEND_COOLDOWN_SECONDS : 0);
   const verified = useRef(false);
 
@@ -109,9 +113,15 @@ export function VerifyEmailPage(): JSX.Element {
 
       {state === 'idle' ? (
         <>
-          <Alert tone="info" className="mt-4" title={t('auth.verify.sentTitle')}>
-            {email ? t('auth.verify.sentText', { email }) : t('auth.verify.sentTextNoEmail')}
-          </Alert>
+          {deliveryFailed && !resendDone ? (
+            <Alert tone="danger" className="mt-4" title={t('errors.title')}>
+              {codeMessage('EMAIL_DELIVERY_FAILED')}
+            </Alert>
+          ) : (
+            <Alert tone="info" className="mt-4" title={t('auth.verify.sentTitle')}>
+              {email ? t('auth.verify.sentText', { email }) : t('auth.verify.sentTextNoEmail')}
+            </Alert>
+          )}
           {resendBlock}
           <div className="mt-6">
             <ButtonLink to="/cabinet" variant="secondary">

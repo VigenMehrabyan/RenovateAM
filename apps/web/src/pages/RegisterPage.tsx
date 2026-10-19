@@ -37,7 +37,7 @@ export function RegisterPage(): JSX.Element {
     setFormError(null);
     setDuplicate(false);
     try {
-      await authApi.register({
+      const { emailVerificationSent } = await authApi.register({
         ...values,
         locale: toApiLocale(isLocale(i18n.language) ? i18n.language : 'ru'),
         ...(stored?.estimateId ? { quickEstimateIds: [stored.estimateId] } : {}),
@@ -49,7 +49,13 @@ export function RegisterPage(): JSX.Element {
         navigate('/login', { replace: true });
         return;
       }
-      navigate(`/verify?sent=1&email=${encodeURIComponent(values.email)}`, { replace: true });
+      // Письмо не ушло — страница подтверждения скажет об этом честно, а не
+      // отправит человека ждать несуществующее письмо. Окно повторной отправки
+      // всё равно отсчитывается: токен на сервере выпущен.
+      const delivery = emailVerificationSent ? '' : '&delivery=failed';
+      navigate(`/verify?sent=1&email=${encodeURIComponent(values.email)}${delivery}`, {
+        replace: true,
+      });
     } catch (error) {
       if (error instanceof ApiError && error.code === 'EMAIL_ALREADY_REGISTERED') {
         setDuplicate(true);

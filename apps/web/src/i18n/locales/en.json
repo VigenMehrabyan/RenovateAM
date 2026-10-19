@@ -465,6 +465,7 @@
     "COMMENT_REQUIRED": "A comment is required.",
     "RATE_LIMITED": "Too many requests. Wait a minute.",
     "RESEND_TOO_SOON": "The message can be sent once per 60 seconds.",
+    "EMAIL_DELIVERY_FAILED": "The email could not be sent. Try again later or contact us.",
     "UNKNOWN": "Something went wrong. Try again.",
     "retry": "Try again",
     "REQUEST_LIMIT_REACHED": "Too many requests in a row: no more than three per hour. Check your cabinet — the request may already be submitted.",

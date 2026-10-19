@@ -92,6 +92,50 @@ describe.skipIf(!DATABASE_AVAILABLE)('auth (интеграция)', () => {
       expect(rows[0]!.password_hash).not.toContain(registration.password);
     });
 
+    /**
+     * Старое поведение врало: канал отказывал, а ответ всё равно говорил
+     * `emailVerificationSent: true`, и человек ждал письма, которого нет.
+     */
+    it('письмо не ушло → аккаунт создан, но ответ говорит emailVerificationSent=false', async () => {
+      context.mail.failDelivery();
+
+      const response = await context
+        .http()
+        .post(url('/auth/register'))
+        .send(registration)
+        .expect(201);
+
+      expect(response.body).toEqual({
+        userId: expect.any(String),
+        emailVerificationSent: false,
+      });
+      // Письма действительно нет.
+      expect(context.mail.lastTo(registration.email)).toBeUndefined();
+
+      // Регистрация при этом состоялась: аккаунт и токен верификации на месте.
+      const { rows } = await context.db.query<{ count: string }>(
+        'SELECT count(*) FROM "users" WHERE "email" = $1',
+        [registration.email],
+      );
+      expect(Number(rows[0]!.count)).toBe(1);
+      const tokens = await context.db.query<{ count: string }>(
+        'SELECT count(*) FROM "verification_tokens"',
+      );
+      expect(Number(tokens.rows[0]!.count)).toBe(1);
+    });
+
+    it('после отказа канала вход в кабинет работает', async () => {
+      context.mail.failDelivery();
+      await context.http().post(url('/auth/register')).send(registration).expect(201);
+      context.mail.deliverNormally();
+
+      await context
+        .http()
+        .post(url('/auth/login'))
+        .send({ email: registration.email, password: registration.password })
+        .expect(200);
+    });
+
     it('телефон не уникален: дубли решаются склейкой в админке, а не запретом', async () => {
       await context.http().post(url('/auth/register')).send(registration).expect(201);
       await context
@@ -188,6 +232,32 @@ describe.skipIf(!DATABASE_AVAILABLE)('auth (интеграция)', () => {
         [user.id],
       );
       expect(Number(rows[0]!.count)).toBe(2);
+    });
+
+    /**
+     * Раньше эндпоинт отвечал 202 `{ sent: true }` независимо от исхода —
+     * клиент показывал «письмо отправлено ещё раз» на пустом месте.
+     */
+    it('канал отказал → 502 EMAIL_DELIVERY_FAILED', async () => {
+      const user = await createClient(context, { verified: false });
+      await context.db.query(
+        `UPDATE "verification_tokens" SET "created_at" = now() - interval '2 minutes'`,
+      );
+      // Ящик чистим до переключателя: clear() сбрасывает и отказ канала.
+      context.mail.clear();
+      context.mail.failDelivery();
+
+      const response = await context
+        .http()
+        .post(url('/auth/resend-verification'))
+        .set('Authorization', `Bearer ${user.accessToken}`)
+        .expect(502);
+
+      expect(response.body.error.code).toBe('EMAIL_DELIVERY_FAILED');
+      expect(response.body.error.requestId).toEqual(expect.any(String));
+      // Ответ об успехе не просочился.
+      expect(response.body.sent).toBeUndefined();
+      expect(context.mail.all()).toHaveLength(0);
     });
 
     it('уже подтверждённый адрес → ALREADY_VERIFIED', async () => {

@@ -29,6 +29,16 @@ export class S3Storage implements StorageProvider {
       endpoint: options.endpoint,
       region: options.region,
       credentials: { accessKeyId: options.accessKey, secretAccessKey: options.secretKey },
+      // Начиная с SDK 3.729 клиент по умолчанию считает CRC32 тела и вшивает его
+      // в подписанную ссылку. У ссылки на загрузку тела ещё нет, поэтому в URL
+      // попадает контрольная сумма пустого файла (x-amz-checksum-crc32=AAAAAA==),
+      // и R2 отклоняет любой настоящий файл. Считаем суммы, только когда их
+      // требует сама операция.
+      requestChecksumCalculation: 'WHEN_REQUIRED',
+      responseChecksumValidation: 'WHEN_REQUIRED',
+      // Адрес вида <endpoint>/<bucket>/<key>: один хост для всех объектов,
+      // предсказуемый для CORS.
+      forcePathStyle: true,
     });
   }
 

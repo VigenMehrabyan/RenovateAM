@@ -1,10 +1,12 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { NOTIFICATION_CHANNELS, type NotificationChannel } from './channels/notification-channel';
-import type { NotificationEvent, NotificationsPublicService } from './public';
+import type { NotificationDelivery, NotificationEvent, NotificationsPublicService } from './public';
 
 /**
  * Диспетчер уведомлений. Рассылает событие во все каналы, которые его
- * поддерживают. Падение канала не роняет бизнес-операцию — только лог.
+ * поддерживают. Падение канала не роняет бизнес-операцию — но и не
+ * выдаётся за успех: наружу уходит `accepted: false`, и вызывающий решает,
+ * что сказать пользователю.
  */
 @Injectable()
 export class NotificationsService implements NotificationsPublicService {
@@ -12,11 +14,13 @@ export class NotificationsService implements NotificationsPublicService {
 
   constructor(@Inject(NOTIFICATION_CHANNELS) private readonly channels: NotificationChannel[]) {}
 
-  async send(event: NotificationEvent): Promise<void> {
+  async send(event: NotificationEvent): Promise<NotificationDelivery> {
+    let accepted = false;
     for (const channel of this.channels) {
       if (!channel.supports(event)) continue;
       try {
         await channel.send(event);
+        accepted = true;
       } catch (error) {
         this.logger.error(
           `канал ${channel.name} не доставил "${event.type}" на ${event.to}: ${
@@ -25,5 +29,10 @@ export class NotificationsService implements NotificationsPublicService {
         );
       }
     }
+    // Ни один канал не взял событие — это тоже недоставка, а не тишина.
+    if (!accepted) {
+      this.logger.error(`событие "${event.type}" для ${event.to} не принял ни один канал`);
+    }
+    return { accepted };
   }
 }
