@@ -44,7 +44,12 @@ export class FilesRepository {
   }
 
   async countDraftsByUser(userId: string): Promise<number> {
-    return this.prisma.requestFile.count({ where: { userId, requestId: null } });
+    // Считаем только подтверждённые черновики. Неподтверждённая запись — след
+    // неудавшейся загрузки: файла за ней нет, и занимать квоту она не должна,
+    // иначе десять оборванных попыток запирают человеку загрузку навсегда.
+    return this.prisma.requestFile.count({
+      where: { userId, requestId: null, uploadedAt: { not: null } },
+    });
   }
 
   /** Привязка черновиков к заявке. Чужие файлы не затрагиваются. */
@@ -69,5 +74,16 @@ export class FilesRepository {
     return this.prisma.requestFile.findMany({
       where: { uploadedAt: null, createdAt: { lt: olderThan } },
     });
+  }
+
+  /**
+   * Удаляет собственные неподтверждённые записи пользователя старше указанного
+   * момента. Иначе следы неудачных загрузок копятся в таблице без срока годности.
+   */
+  async deleteStaleDraftsOfUser(userId: string, olderThan: Date): Promise<number> {
+    const { count } = await this.prisma.requestFile.deleteMany({
+      where: { userId, uploadedAt: null, createdAt: { lt: olderThan } },
+    });
+    return count;
   }
 }

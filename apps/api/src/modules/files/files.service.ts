@@ -14,6 +14,11 @@ export const MAX_FILE_SIZE = 25 * 1024 * 1024;
 export const MAX_FILES_PER_REQUEST = 10;
 /** Подписанные ссылки живут 15 минут (US-3). */
 export const SIGNED_URL_TTL_SECONDS = 15 * 60;
+/**
+ * Через час неподтверждённая запись считается следом неудачной загрузки:
+ * ссылка давно истекла, файла за записью нет, и держать её незачем.
+ */
+export const STALE_DRAFT_TTL_MS = 60 * 60 * 1000;
 
 /** Белый список форматов: PDF, JPG, PNG, DWG (US-3). */
 export const ALLOWED_MIME: Record<string, string[]> = {
@@ -55,6 +60,14 @@ export class FilesService implements FilesPublicService {
         details: [{ field: 'size', code: 'INVALID' }],
       });
     }
+
+    // Чистим собственные следы неудачных загрузок до проверки лимита: иначе
+    // таблица растёт без срока годности, а человек видит «файлов слишком много»
+    // там, где не загрузилось ни одного.
+    await this.repository.deleteStaleDraftsOfUser(
+      params.userId,
+      new Date(Date.now() - STALE_DRAFT_TTL_MS),
+    );
 
     if (params.requestId) {
       const owned = await this.repository.requestBelongsToUserFiles(
