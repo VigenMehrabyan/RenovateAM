@@ -376,6 +376,62 @@ describe.skipIf(!DATABASE_AVAILABLE)('admin, pricing и files (интеграц�
       expect(response.body.error.code).toBe('FILE_LIMIT_REACHED');
     });
 
+    it('оборванные загрузки не занимают квоту', async () => {
+      const user = await createClient(context);
+      // Двенадцать выданных ссылок, по которым файл так и не доехал: в таблице
+      // остаются записи без uploaded_at. Раньше они забивали лимит и человек
+      // больше не мог приложить ничего — при нуле реально загруженных файлов.
+      for (let index = 0; index < 12; index += 1) {
+        await context
+          .http()
+          .post(url('/files/upload-url'))
+          .set(auth(user))
+          .send({
+            kind: 'BTI',
+            originalName: `broken${index}.pdf`,
+            mime: 'application/pdf',
+            size: 1024,
+          })
+          .expect(201);
+      }
+
+      await context
+        .http()
+        .post(url('/files/upload-url'))
+        .set(auth(user))
+        .send({ kind: 'BTI', originalName: 'next.pdf', mime: 'application/pdf', size: 1024 })
+        .expect(201);
+    });
+
+    it('неподтверждённые записи старше часа удаляются при новой загрузке', async () => {
+      const user = await createClient(context);
+      const first = await context
+        .http()
+        .post(url('/files/upload-url'))
+        .set(auth(user))
+        .send({ kind: 'BTI', originalName: 'stale.pdf', mime: 'application/pdf', size: 1024 })
+        .expect(201);
+      const staleId = (first.body as { fileId: string }).fileId;
+
+      await context.db.query(
+        `UPDATE "files" SET "created_at" = now() - interval '2 hours' WHERE "id" = $1`,
+        [staleId],
+      );
+
+      await context
+        .http()
+        .post(url('/files/upload-url'))
+        .set(auth(user))
+        .send({ kind: 'BTI', originalName: 'fresh.pdf', mime: 'application/pdf', size: 1024 })
+        .expect(201);
+
+      const { rows } = await context.db.query<{ id: string }>(
+        'SELECT "id" FROM "files" WHERE "id" = $1',
+        [staleId],
+      );
+      expect(rows).toHaveLength(0);
+    });
+
     it('файлы привязываются к заявке при её создании', async () => {
       const user = await createClient(context);
       const bti = await uploadFile(context, user, { kind: 'BTI', name: 'bti.pdf' });
