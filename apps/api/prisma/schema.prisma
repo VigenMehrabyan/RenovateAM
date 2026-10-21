@@ -95,6 +95,12 @@ enum RejectionReason {
   OTHER
 }
 
+/// Кто написал сообщение в чате. Менеджер в переписку не вмешивается — он звонит.
+enum ChatRole {
+  VISITOR
+  BOT
+}
+
 // ---------------------------------------------------------------------------
 // auth
 // ---------------------------------------------------------------------------
@@ -437,4 +443,61 @@ model RequestFile {
   @@index([userId, requestId])
   @@index([uploadedAt])
   @@map("files")
+}
+
+// ---------------------------------------------------------------------------
+// chat
+// ---------------------------------------------------------------------------
+
+/// @owner: chat — разговор посетителя с ботом. Существует без регистрации.
+///
+/// Отдельной таблицы лидов нет: лид — это сессия с заполненными контактами.
+/// Один источник истины, никакой рассинхронизации между «разговором»
+/// и «заявкой на звонок» (docs/CHAT.md §4).
+///
+/// Связей с моделью User здесь нет намеренно: пользователи принадлежат
+/// модулю `auth`, а чат обязан работать для анонима. Внешние ключи
+/// `user_id` и `handled_by_id` задаются миграцией 0005_chat.
+model ChatSession {
+  id                 String    @id @default(uuid()) @db.Uuid
+  /// Язык последнего сообщения посетителя.
+  locale             Locale
+  /// Заполняется, если посетитель вошёл в кабинет. Для анонима null.
+  userId             String?   @map("user_id") @db.Uuid
+  contactName        String?   @map("contact_name") @db.VarChar(120)
+  contactEmail       String?   @map("contact_email") @db.VarChar(254)
+  contactPhone       String?   @map("contact_phone") @db.VarChar(32)
+  /// Момент, когда контакты заполнены. До этого сессия лидом не считается.
+  leadCapturedAt     DateTime? @map("lead_captured_at") @db.Timestamptz(3)
+  /// Посетитель попросил живого человека.
+  handoffRequestedAt DateTime? @map("handoff_requested_at") @db.Timestamptz(3)
+  /// Менеджер отметил лид обработанным.
+  handledAt          DateTime? @map("handled_at") @db.Timestamptz(3)
+  handledById        String?   @map("handled_by_id") @db.Uuid
+  /// Страница, с которой начат разговор. Нужна, чтобы понимать контекст вопроса.
+  pageUrl            String?   @map("page_url") @db.VarChar(500)
+  lastMessageAt      DateTime  @default(now()) @map("last_message_at") @db.Timestamptz(3)
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  messages ChatMessage[]
+
+  @@index([leadCapturedAt])
+  @@index([handledAt, lastMessageAt])
+  @@map("chat_sessions")
+}
+
+/// @owner: chat — одно сообщение в разговоре.
+model ChatMessage {
+  id        String   @id @default(uuid()) @db.Uuid
+  sessionId String   @map("session_id") @db.Uuid
+  role      ChatRole
+  text      String   @db.VarChar(2000)
+  /// id темы из базы знаний, по которой отвечал бот. Для сообщений посетителя null.
+  entryId   String?  @map("entry_id") @db.VarChar(64)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+  @@map("chat_messages")
 }
