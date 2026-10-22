@@ -5,10 +5,12 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { AllExceptionsFilter } from '@common/errors/all-exceptions.filter';
 import { AppThrottlerGuard } from '@common/guards/app-throttler.guard';
 import { JwtAuthGuard } from '@common/guards/jwt-auth.guard';
+import { THROTTLER_GROUPS } from '@common/guards/throttler-groups';
 import { PrismaModule } from '@common/prisma/prisma.module';
 import { AppConfigModule } from './config/config.module';
 import { AdminModule } from '@modules/admin/admin.module';
 import { AuthModule } from '@modules/auth/auth.module';
+import { ChatModule } from '@modules/chat/chat.module';
 import { FilesModule } from '@modules/files/files.module';
 import { NotificationsModule } from '@modules/notifications/notifications.module';
 import { PricingModule } from '@modules/pricing/pricing.module';
@@ -24,7 +26,10 @@ import { RequestsModule } from '@modules/requests/requests.module';
 @Module({
   imports: [
     AppConfigModule,
-    ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 120 }]),
+    // Две группы лимитов, каждая со своим предикатом «мой ли это запрос»
+    // (см. @common/guards/throttler-groups): иначе лимит чата применился бы
+    // ко всему API, а не только к виджету.
+    ThrottlerModule.forRoot(THROTTLER_GROUPS),
     JwtModule.register({}),
     PrismaModule,
     NotificationsModule,
@@ -33,6 +38,7 @@ import { RequestsModule } from '@modules/requests/requests.module';
     FilesModule,
     RequestsModule,
     AdminModule,
+    ChatModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
