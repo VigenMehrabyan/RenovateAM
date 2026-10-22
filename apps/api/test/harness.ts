@@ -16,6 +16,8 @@ export const DATABASE_AVAILABLE = Boolean(
 );
 
 const TABLES = [
+  'chat_messages',
+  'chat_sessions',
   'comment_files',
   'comments',
   'status_log',

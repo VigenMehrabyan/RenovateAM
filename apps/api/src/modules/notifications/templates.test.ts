@@ -6,6 +6,7 @@ import type { NotificationEvent } from './public';
 const LOCALES: Locale[] = ['RU', 'HY', 'EN'];
 const LINK = 'https://renovateam.am/verify?token=abc123';
 const RESET_LINK = 'https://renovateam.am/reset?token=abc123';
+const ADMIN_LINK = 'https://renovateam.am/admin/chat/0b2f17c0-0000-4000-8000-000000000001';
 
 /** По одному событию каждого типа — на одной локали. */
 function events(locale: Locale): NotificationEvent[] {
@@ -43,6 +44,25 @@ function events(locale: Locale): NotificationEvent[] {
       requestNumber: 12,
       byStaff: false,
       comment: 'План прикладываю',
+    },
+    {
+      type: 'CHAT_LEAD',
+      to: 'manager@example.com',
+      locale,
+      name: 'Ани',
+      phone: '+37499099457',
+      email: 'ani@example.com',
+      question: 'сколько стоит ремонт 60 м² под ключ',
+      adminLink: ADMIN_LINK,
+    },
+    {
+      type: 'CHAT_HANDOFF',
+      to: 'manager@example.com',
+      locale,
+      name: 'Ани',
+      phone: '+37499099457',
+      question: 'хочу поговорить с человеком',
+      adminLink: ADMIN_LINK,
     },
   ];
 }
@@ -131,6 +151,60 @@ describe('шаблоны писем', () => {
 
     expect(message.html).not.toContain('<img');
     expect(message.html).toContain('&quot;&gt;&lt;img');
+  });
+
+  it('письмо о лиде — карточка и ссылка в админку, а не пересказ разговора', () => {
+    const message = renderTemplate({
+      type: 'CHAT_LEAD',
+      to: 'manager@example.com',
+      locale: 'RU',
+      name: 'Ани',
+      phone: '+37499099457',
+      email: 'ani@example.com',
+      question: 'сколько стоит ремонт 60 м² под ключ',
+      adminLink: ADMIN_LINK,
+    });
+
+    expect(message.text).toContain('Ани');
+    expect(message.text).toContain('+37499099457');
+    expect(message.text).toContain('ani@example.com');
+    expect(message.text).toContain('сколько стоит ремонт 60 м² под ключ');
+    expect(message.text).toContain(ADMIN_LINK);
+    expect(message.html).toContain(`href="${ADMIN_LINK}"`);
+  });
+
+  it('человека позвали без контактов — письмо говорит об этом прямо', () => {
+    const message = renderTemplate({
+      type: 'CHAT_HANDOFF',
+      to: 'manager@example.com',
+      locale: 'RU',
+      name: '',
+      phone: '',
+      question: '',
+      adminLink: ADMIN_LINK,
+    });
+
+    expect(message.text).toContain('Контакты посетитель не оставил');
+    expect(message.text).toContain('Вопрос задать не успел');
+    // Единственный путь к посетителю — админка, и ссылка на неё обязана быть.
+    expect(message.text).toContain(ADMIN_LINK);
+  });
+
+  it('имя и вопрос посетителя экранируются: это произвольный текст из чата', () => {
+    const message = renderTemplate({
+      type: 'CHAT_LEAD',
+      to: 'manager@example.com',
+      locale: 'RU',
+      name: '<b>Ани</b>',
+      phone: '+37499099457',
+      email: 'ani@example.com',
+      question: '<script>alert("x")</script>',
+      adminLink: ADMIN_LINK,
+    });
+
+    expect(message.html).not.toContain('<script>');
+    expect(message.html).not.toContain('<b>Ани</b>');
+    expect(message.html).toContain('&lt;script&gt;');
   });
 
   it('для всех локалей и типов событий заполнены subject, text и html', () => {
