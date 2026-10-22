@@ -13,6 +13,8 @@ import { NewRequestPage } from '@/pages/NewRequestPage';
 import { RegisterPage } from '@/pages/RegisterPage';
 import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
 import { VerifyEmailPage } from '@/pages/VerifyEmailPage';
+import { AdminChatPage } from '@/pages/admin/AdminChatPage';
+import { AdminChatSessionPage } from '@/pages/admin/AdminChatSessionPage';
 import { AdminQueuePage } from '@/pages/admin/AdminQueuePage';
 import { AdminRatesPage } from '@/pages/admin/AdminRatesPage';
 import { AdminRequestPage } from '@/pages/admin/AdminRequestPage';
@@ -52,6 +54,8 @@ export function App(): JSX.Element {
           <Route path="/admin" element={<AdminQueuePage />} />
           <Route path="/admin/requests/:id" element={<AdminRequestPage />} />
           <Route path="/admin/rates" element={<AdminRatesPage />} />
+          <Route path="/admin/chat" element={<AdminChatPage />} />
+          <Route path="/admin/chat/:id" element={<AdminChatSessionPage />} />
         </Route>
 
         <Route path="*" element={<NotFoundPage />} />

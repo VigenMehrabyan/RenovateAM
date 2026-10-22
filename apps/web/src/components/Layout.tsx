@@ -62,9 +62,14 @@ export function Layout(): JSX.Element {
         </NavLink>
       ) : null}
       {isStaff(user) ? (
-        <NavLink to="/admin" className={NAV_LINK} end onClick={() => setMenuOpen(false)}>
-          {t('nav.admin')}
-        </NavLink>
+        <>
+          <NavLink to="/admin" className={NAV_LINK} end onClick={() => setMenuOpen(false)}>
+            {t('nav.admin')}
+          </NavLink>
+          <NavLink to="/admin/chat" className={NAV_LINK} onClick={() => setMenuOpen(false)}>
+            {t('admin.chat.title')}
+          </NavLink>
+        </>
       ) : null}
       {user?.role === 'ADMIN' ? (
         <NavLink to="/admin/rates" className={NAV_LINK} onClick={() => setMenuOpen(false)}>
