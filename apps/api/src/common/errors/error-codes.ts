@@ -13,8 +13,19 @@ export const ErrorCode = {
   // 403
   FORBIDDEN: 'FORBIDDEN',
   EMAIL_NOT_VERIFIED: 'EMAIL_NOT_VERIFIED',
+  /**
+   * Разговор в чате продолжается только с контактами: приветствие и первый
+   * вопрос бесплатны (docs/CHAT.md §5.1). Отдельный код от FORBIDDEN:
+   * виджету надо не «нельзя», а «покажи форму контактов».
+   */
+  CHAT_CONTACTS_REQUIRED: 'CHAT_CONTACTS_REQUIRED',
   // 404
   NOT_FOUND: 'NOT_FOUND',
+  /**
+   * Разговора нет или он старше суток. Один код на оба случая намеренно:
+   * виджет в обоих молча начинает новую сессию, и различать ему нечего.
+   */
+  CHAT_SESSION_NOT_FOUND: 'CHAT_SESSION_NOT_FOUND',
   // 409
   EMAIL_ALREADY_REGISTERED: 'EMAIL_ALREADY_REGISTERED',
   DECISION_ALREADY_MADE: 'DECISION_ALREADY_MADE',
@@ -46,6 +57,12 @@ export const ErrorCode = {
   RESEND_TOO_SOON: 'RESEND_TOO_SOON',
   /** Антидубль заявок: больше трёх штук в час от одного клиента. */
   REQUEST_LIMIT_REACHED: 'REQUEST_LIMIT_REACHED',
+  /**
+   * Предел сообщений посетителя на один разговор в чате (60, §5.1).
+   * Отдельный код от RATE_LIMITED: это не «слишком часто», а «хватит
+   * на эту сессию» — виджету стоит предложить живого человека.
+   */
+  CHAT_SESSION_EXHAUSTED: 'CHAT_SESSION_EXHAUSTED',
   // 500
   INTERNAL_ERROR: 'INTERNAL_ERROR',
   // 502

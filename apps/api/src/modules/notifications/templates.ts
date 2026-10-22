@@ -278,5 +278,117 @@ function build(event: NotificationEvent): Dictionary {
         },
       };
     }
+
+    case 'CHAT_LEAD': {
+      // Карточка лида, а не пересказ разговора: имя, телефон, почта, первый
+      // вопрос и ссылка. Всё остальное менеджер прочитает в админке — письмо
+      // нужно, чтобы он туда пошёл, а не чтобы заменить её собой.
+      const card = (labels: ChatLabels): string[] => [
+        `${labels.name}: ${event.name}`,
+        `${labels.phone}: ${event.phone}`,
+        `${labels.email}: ${event.email}`,
+        event.question === '' ? labels.noQuestion : `${labels.question}: ${event.question}`,
+      ];
+      return {
+        RU: {
+          subject: 'RenovateAM — новый лид из чата',
+          heading: 'Новый лид из чата',
+          paragraphs: ['Посетитель оставил контакты в чате на сайте.', ...card(CHAT_LABELS.RU)],
+          action: { label: 'Открыть разговор', url: event.adminLink },
+        },
+        HY: {
+          subject: 'RenovateAM — նոր հայտ չատից',
+          heading: 'Նոր հայտ չատից',
+          paragraphs: ['Այցելուն թողել է իր կոնտակտները կայքի չատում:', ...card(CHAT_LABELS.HY)],
+          action: { label: 'Բացել զրույցը', url: event.adminLink },
+        },
+        EN: {
+          subject: 'RenovateAM — new chat lead',
+          heading: 'New chat lead',
+          paragraphs: [
+            'A visitor left their contacts in the website chat.',
+            ...card(CHAT_LABELS.EN),
+          ],
+          action: { label: 'Open the conversation', url: event.adminLink },
+        },
+      };
+    }
+
+    case 'CHAT_HANDOFF': {
+      // Человека можно позвать и без контактов: тогда в письме честно сказано,
+      // что звонить некуда, и единственный путь к посетителю — админка.
+      const contacts = (labels: ChatLabels): string =>
+        event.name === '' && event.phone === ''
+          ? labels.noContacts
+          : `${labels.name}: ${event.name === '' ? '—' : event.name}, ${labels.phone}: ${
+              event.phone === '' ? '—' : event.phone
+            }`;
+      const body = (labels: ChatLabels): string[] => [
+        labels.handoffLead,
+        contacts(labels),
+        event.question === '' ? labels.noQuestion : `${labels.question}: ${event.question}`,
+      ];
+      return {
+        RU: {
+          subject: 'RenovateAM — в чате просят человека',
+          heading: 'В чате просят человека',
+          paragraphs: body(CHAT_LABELS.RU),
+          action: { label: 'Открыть разговор', url: event.adminLink },
+        },
+        HY: {
+          subject: 'RenovateAM — չատում խնդրում են մասնագետի',
+          heading: 'Չատում խնդրում են մասնագետի',
+          paragraphs: body(CHAT_LABELS.HY),
+          action: { label: 'Բացել զրույցը', url: event.adminLink },
+        },
+        EN: {
+          subject: 'RenovateAM — a chat visitor asks for a human',
+          heading: 'A chat visitor asks for a human',
+          paragraphs: body(CHAT_LABELS.EN),
+          action: { label: 'Open the conversation', url: event.adminLink },
+        },
+      };
+    }
   }
 }
+
+/** Подписи полей карточки лида. Письмо менеджеру тоже переводится (US-8). */
+interface ChatLabels {
+  name: string;
+  phone: string;
+  email: string;
+  question: string;
+  noQuestion: string;
+  noContacts: string;
+  handoffLead: string;
+}
+
+const CHAT_LABELS: Record<Locale, ChatLabels> = {
+  RU: {
+    name: 'Имя',
+    phone: 'Телефон',
+    email: 'Почта',
+    question: 'Спрашивал',
+    noQuestion: 'Вопрос задать не успел',
+    noContacts: 'Контакты посетитель не оставил — связаться можно только через чат',
+    handoffLead: 'Посетитель чата просит живого человека.',
+  },
+  HY: {
+    name: 'Անուն',
+    phone: 'Հեռախոս',
+    email: 'Էլ. փոստ',
+    question: 'Հարցրել է',
+    noQuestion: 'Հարց չի տրվել',
+    noContacts: 'Այցելուն կոնտակտներ չի թողել — կապվել հնարավոր է միայն չատի միջոցով',
+    handoffLead: 'Չատի այցելուն խնդրում է մասնագետի հետ խոսել:',
+  },
+  EN: {
+    name: 'Name',
+    phone: 'Phone',
+    email: 'Email',
+    question: 'Asked',
+    noQuestion: 'No question was asked',
+    noContacts: 'The visitor left no contacts — the chat is the only way back to them',
+    handoffLead: 'A chat visitor is asking for a human.',
+  },
+};

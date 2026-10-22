@@ -32,6 +32,17 @@ export interface AppConfig {
     from: string;
     managerEmail: string;
   };
+  /**
+   * Telegram для уведомлений о лидах из чата (docs/CHAT.md §6).
+   *
+   * Пустые значения — нормальный режим: канал просто не регистрируется,
+   * и локальная разработка работает без бота. В production отсутствие
+   * токена один раз пишется в лог: молча терять уведомления нельзя.
+   */
+  telegram: {
+    botToken: string;
+    chatId: string;
+  };
 }
 
 function required(name: string): string {
@@ -118,6 +129,10 @@ export function loadConfiguration(): AppConfig {
       apiKey: optional('RESEND_API_KEY', ''),
       from: optional('MAIL_FROM', 'RenovateAM <noreply@renovateam.am>'),
       managerEmail: optional('MANAGER_EMAIL', ''),
+    },
+    telegram: {
+      botToken: optional('TELEGRAM_BOT_TOKEN', ''),
+      chatId: optional('TELEGRAM_CHAT_ID', ''),
     },
   };
 

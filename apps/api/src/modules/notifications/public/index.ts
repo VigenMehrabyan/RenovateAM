@@ -45,6 +45,35 @@ export type NotificationEvent =
       locale: Locale;
       requestNumber: number;
       result: DecisionResult;
+    }
+  /**
+   * Посетитель чата оставил контакты — это лид (docs/CHAT.md §6). Уходит
+   * менеджеру на `MANAGER_EMAIL` и, если настроен, в Telegram. Переписка
+   * целиком не передаётся: только первый вопрос и ссылка в админку.
+   */
+  | {
+      type: 'CHAT_LEAD';
+      to: string;
+      locale: Locale;
+      name: string;
+      phone: string;
+      email: string;
+      question: string;
+      adminLink: string;
+    }
+  /**
+   * Посетитель чата попросил живого человека. Контакты могут быть пустыми:
+   * позвать человека можно и не оставив их, и менеджеру важнее узнать об
+   * этом сразу, чем получить заполненную карточку.
+   */
+  | {
+      type: 'CHAT_HANDOFF';
+      to: string;
+      locale: Locale;
+      name: string;
+      phone: string;
+      question: string;
+      adminLink: string;
     };
 
 export type NotificationEventType = NotificationEvent['type'];
