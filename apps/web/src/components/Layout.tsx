@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { isStaff, useAuth } from '@/features/auth/auth-context';
+import { ChatWidget } from '@/features/chat/ChatWidget';
+import { isPublicChatPath } from '@/features/chat/public-pages';
 import { ErrorBoundary } from './ErrorBoundary';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { FooterLogo, HeaderLogo } from './brand';
@@ -157,6 +159,13 @@ export function Layout(): JSX.Element {
       </main>
 
       <Footer />
+
+      {/* Виджет живёт в раскладке, а не на отдельных страницах: он обязан
+          пережить переход между публичными маршрутами, не теряя разговора
+          (§7.3). В кабинете и админке его нет — проверка по пути, а не по
+          роли: незалогиненный посетитель на `/cabinet` тоже не должен
+          видеть чат поверх страницы входа. */}
+      {isPublicChatPath(location.pathname) ? <ChatWidget /> : null}
     </div>
   );
 }
