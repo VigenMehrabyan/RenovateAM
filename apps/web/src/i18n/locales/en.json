@@ -473,6 +473,46 @@
       "author": "Author",
       "positiveRequired": "The value must be greater than zero",
       "rangeOrderRequired": "The lower bound cannot exceed the upper bound"
+    },
+    "chat": {
+      "title": "Chat leads",
+      "lead": "Conversations where the visitor left contact details or asked for a human. Newest first.",
+      "filterHandled": "State",
+      "filterAll": "All",
+      "filterOpen": "Not handled",
+      "filterDone": "Handled",
+      "total": "Leads in total: {{count}}",
+      "empty": "No leads match these filters.",
+      "openRow": "Open the conversation",
+      "handoffFlag": "Asked for a human",
+      "handledFlag": "Handled",
+      "page": "Page {{page}}",
+      "columns": {
+        "name": "Name",
+        "phone": "Phone",
+        "email": "E-mail",
+        "question": "First question",
+        "createdAt": "Started",
+        "flags": "Flags"
+      },
+      "session": {
+        "back": "Back to leads",
+        "title": "Chat conversation",
+        "handoffRequested": "The visitor asked for a human.",
+        "noContacts": "No contact details: the visitor only asked for a human.",
+        "conversationTitle": "Conversation",
+        "empty": "This conversation has no messages.",
+        "visitor": "Visitor",
+        "bot": "Bot",
+        "contactsTitle": "Contacts",
+        "locale": "Conversation language",
+        "startedAt": "Started",
+        "lastMessageAt": "Last message",
+        "pageUrl": "Page",
+        "handledAt": "Marked handled",
+        "marked": "The lead is marked as handled",
+        "markHandled": "Handled"
+      }
     }
   },
   "errors": {
@@ -507,7 +547,10 @@
     "retry": "Try again",
     "REQUEST_LIMIT_REACHED": "Too many requests in a row: no more than three per hour. Check your cabinet — the request may already be submitted.",
     "DISCUSSION_CLOSED": "The request is rejected — no new messages are accepted.",
-    "QUOTE_REQUIRED": "A quote cannot be marked ready before it exists. Upload the quote PDF first, then change the status."
+    "QUOTE_REQUIRED": "A quote cannot be marked ready before it exists. Upload the quote PDF first, then change the status.",
+    "CHAT_SESSION_NOT_FOUND": "The conversation was not found or has already closed. Start a new one — I am here.",
+    "CHAT_CONTACTS_REQUIRED": "To continue the conversation, please leave your contact details.",
+    "CHAT_SESSION_EXHAUSTED": "This conversation has too many messages. Leave a request or call us — we will answer by voice."
   },
   "notFound": {
     "title": "Page not found",
@@ -540,5 +583,39 @@
       "ADMIN": "Administrator"
     },
     "deletedAuthor": "Account deleted"
+  },
+  "chat": {
+    "launcher": "Open the assistant chat",
+    "title": "RenovateAM assistant",
+    "subtitle": "Answers right away, no sign-up",
+    "inputLabel": "Your question",
+    "inputPlaceholder": "Ask about price, timeline or materials",
+    "send": "Send",
+    "typing": "The assistant is typing…",
+    "actions": {
+      "ESTIMATE": "Calculate the price",
+      "REQUEST": "Leave a request",
+      "PORTFOLIO": "See our work",
+      "CALL": "Call us",
+      "HUMAN": "Ask for a human"
+    },
+    "contacts": {
+      "title": "How can we reach you?",
+      "lead": "Leave your name, phone and email — a manager will answer more precisely and check the details.",
+      "name": "Name",
+      "phone": "Phone",
+      "email": "E-mail",
+      "phoneHint": "Armenian number: 099 09 94 57 or +374 99 099 457",
+      "submit": "Continue the conversation",
+      "validation": {
+        "nameRequired": "Tell us what to call you",
+        "nameShort": "The name is too short — at least two letters",
+        "nameLong": "The name is too long — up to 120 characters",
+        "phoneRequired": "Enter a phone number for us to call",
+        "phoneInvalid": "This does not look like an Armenian number. For example: 099 09 94 57",
+        "emailRequired": "Enter an email address",
+        "emailInvalid": "Check the address: it needs an @ and a domain"
+      }
+    }
   }
 }
