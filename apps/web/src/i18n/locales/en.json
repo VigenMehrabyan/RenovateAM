@@ -589,7 +589,7 @@
     "title": "RenovateAM assistant",
     "subtitle": "Answers right away, no sign-up",
     "inputLabel": "Your question",
-    "inputPlaceholder": "Ask about price, timeline or materials",
+    "inputPlaceholder": "Your question…",
     "send": "Send",
     "typing": "The assistant is typing…",
     "actions": {

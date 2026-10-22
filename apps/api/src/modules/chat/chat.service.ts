@@ -51,6 +51,16 @@ const MAX_SUGGESTIONS = 3;
 /** Предел колонки `chat_messages.text`. */
 const STORED_TEXT_LIMIT = 2000;
 
+/**
+ * Стартовые подсказки под приветствием.
+ *
+ * Список именной, а не «первые три темы базы»: при таком отборе подсказка
+ * «Посчитать цену» повторяла подпись кнопки ESTIMATE, стоящей рядом, и
+ * посетитель видел один и тот же ход дважды. Здесь три разных входа в
+ * разговор — цена, объём работ, сроки, — и ни один не дублирует кнопку.
+ */
+const STARTER_SUGGESTION_IDS = ['price_per_sqm', 'turnkey_scope', 'renovation_duration'];
+
 @Injectable()
 export class ChatService implements ChatPublicService {
   private readonly logger = new Logger(ChatService.name);
@@ -365,7 +375,11 @@ export class ChatService implements ChatPublicService {
    * вопрос должен быть одинаковым, включая подсказки.
    */
   private topicSuggestions(locale: Locale): string[] {
-    return CHAT_ENTRIES.slice(0, MAX_SUGGESTIONS).map((entry) => entry.label[localeKey(locale)]);
+    const key = localeKey(locale);
+    return STARTER_SUGGESTION_IDS.map((id) => CHAT_ENTRIES.find((entry) => entry.id === id))
+      .filter((entry): entry is (typeof CHAT_ENTRIES)[number] => entry !== undefined)
+      .slice(0, MAX_SUGGESTIONS)
+      .map((entry) => entry.label[key]);
   }
 
   /**

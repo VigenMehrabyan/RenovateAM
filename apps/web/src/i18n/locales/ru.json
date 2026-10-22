@@ -589,7 +589,7 @@
     "title": "Помощник RenovateAM",
     "subtitle": "Отвечает сразу, без регистрации",
     "inputLabel": "Ваш вопрос",
-    "inputPlaceholder": "Спросите о цене, сроках или материалах",
+    "inputPlaceholder": "Ваш вопрос…",
     "send": "Отправить",
     "typing": "Помощник печатает…",
     "actions": {

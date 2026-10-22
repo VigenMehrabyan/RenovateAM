@@ -803,6 +803,8 @@
     animation: chat-mascot-tilt 560ms var(--ease-spring) both;
   }
   .chat-mascot-animated .chat-mascot-float {
+    /* Поворот считается от центра корпуса, иначе фигура уезжает вбок. */
+    transform-origin: 32px 33px;
     animation: chat-mascot-float 3s ease-in-out infinite;
   }
   .chat-mascot-animated .chat-mascot-shadow {
@@ -811,12 +813,16 @@
   }
   /* Моргание: такт 4–6 с и случайная задержка приходят инлайновыми
      переменными из компонента, чтобы два маскота на странице не моргали в
-     такт. Сжатие по вертикали занимает ~6 % такта — это и есть «быстро». */
-  .chat-mascot-animated .chat-mascot-eyes {
-    /* Арка глаза занимает y 30.5…35.8; веко смыкается к её середине. */
-    transform-origin: 32px 33.2px;
-    animation: chat-mascot-blink var(--mascot-blink-period, 5s) linear infinite;
+     такт. Веко идёт по глазам и обратно примерно за 8 % такта — это и есть
+     «быстро». Движется полоса, а не сами дуги: сжатие дуг читалось бы
+     мерцанием лампы, а не морганием. */
+  .chat-mascot-animated .chat-mascot-lid {
+    animation: chat-mascot-blink var(--mascot-blink-period, 5s) ease-in-out infinite;
     animation-delay: var(--mascot-blink-delay, 0s);
+  }
+  /* Без анимации веко стоит выше визора и в кадр не попадает. */
+  .chat-mascot-lid {
+    transform: translateY(-20px);
   }
   .chat-mascot:not(.chat-mascot-animated) .chat-mascot-shadow {
     opacity: 0.42;
@@ -873,10 +879,10 @@
 @keyframes chat-mascot-float {
   0%,
   100% {
-    transform: translateY(0);
+    transform: translateY(0) rotate(0deg);
   }
   50% {
-    transform: translateY(-2.4px);
+    transform: translateY(-3.6px) rotate(-1.2deg);
   }
 }
 @keyframes chat-mascot-ground {
@@ -893,14 +899,14 @@
 @keyframes chat-mascot-blink {
   0%,
   92% {
-    transform: scaleY(1);
+    transform: translateY(-20px);
   }
-  95% {
-    transform: scaleY(0.1);
+  95.5% {
+    transform: translateY(0.4px);
   }
-  98%,
+  99%,
   100% {
-    transform: scaleY(1);
+    transform: translateY(-20px);
   }
 }
 @keyframes chat-mascot-tilt {

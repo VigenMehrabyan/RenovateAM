@@ -9,6 +9,7 @@ import {
   type TestUser,
 } from './harness';
 import { UserRole } from '../src/generated/prisma/enums';
+import { CHAT_ENTRIES } from '../src/modules/chat/knowledge/entries';
 
 /** Ящик из MANAGER_EMAIL: роли «менеджер» в системе нет. */
 const MANAGER = 'manager@renovateam.am';
@@ -133,6 +134,25 @@ describe.skipIf(!DATABASE_AVAILABLE)('чат-бот (интеграция)', () 
       expect(reply.actions.length).toBeLessThanOrEqual(2);
       expect(reply.suggestions.length).toBeLessThanOrEqual(3);
       expect(reply.needsContacts).toBe(true);
+    });
+
+    it('подсказки под приветствием не повторяют кнопку расчёта', async () => {
+      // Кнопка ESTIMATE в виджете подписана «Посчитать цену» — ровно тем же,
+      // чем подписана тема calculate_for_me. Когда подсказки брались как
+      // «первые три темы базы», посетитель видел этот ход дважды: кнопкой и
+      // подсказкой рядом с ней.
+      const response = await context
+        .http()
+        .post(url('/chat/sessions'))
+        .send({ locale: 'RU' })
+        .expect(201);
+      const { reply } = response.body as { reply: Reply };
+      const calculate = CHAT_ENTRIES.find((entry) => entry.id === 'calculate_for_me');
+
+      expect(reply.actions).toContain('ESTIMATE');
+      expect(calculate).toBeDefined();
+      expect(reply.suggestions).not.toContain(calculate?.label.ru);
+      expect(new Set(reply.suggestions).size).toBe(reply.suggestions.length);
     });
 
     it('вопрос и ответ бота сохраняются парой', async () => {
